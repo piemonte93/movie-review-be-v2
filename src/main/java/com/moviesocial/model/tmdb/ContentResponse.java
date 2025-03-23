@@ -2,7 +2,7 @@ package com.moviesocial.model.tmdb;
 
 import java.util.List;
 
-public class MovieResponse {
+public class ContentResponse {
     private int page;
     private List<ContentItem> results;
     private int total_pages;

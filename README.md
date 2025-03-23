@@ -49,12 +49,18 @@ The API will be available at `http://localhost:8080`
 
 ## API Endpoints
 
-### Movie Endpoints
+### Content Endpoints
 
-- `GET /api/movies/trending` - Get trending movies
-- `GET /api/movies/top-rated` - Get top-rated movies
-- `GET /api/movies/upcoming` - Get upcoming movies
-- `GET /api/movies/now-playing` - Get now playing movies
+- `GET /api/contents/trending` - Get trending movies
+- `GET /api/contents/top-rated` - Get top-rated movies
+- `GET /api/contents/upcoming` - Get upcoming movies
+- `GET /api/contents/now-playing` - Get now playing movies
+- `GET /api/contents/movie/{id}` - Get movie details
+- `GET /api/contents/movie/{id}/videos` - Get movie videos
+- `GET /api/contents/movie/{id}/reviews` - Get movie reviews
+- `GET /api/contents/tv/{id}` - Get TV show details
+- `GET /api/contents/tv/{id}/videos` - Get TV show videos
+- `GET /api/contents/tv/{id}/reviews` - Get TV show reviews
 
 ### Authentication Endpoints (to be implemented)
 

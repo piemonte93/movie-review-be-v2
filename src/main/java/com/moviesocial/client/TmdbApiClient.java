@@ -1,6 +1,6 @@
 package com.moviesocial.client;
 
-import com.moviesocial.model.tmdb.MovieResponse;
+import com.moviesocial.model.tmdb.ContentResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,17 +24,17 @@ public class TmdbApiClient {
         this.baseUrl = baseUrl;
     }
 
-    public MovieResponse getTrendingMovies() {
+    public ContentResponse getTrendingMovies() {
         String url = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/trending/movie/week")
                 .queryParam("api_key", apiKey)
                 .queryParam("language", "ko-KR")
                 .toUriString();
 
-        return restTemplate.getForObject(url, MovieResponse.class);
+        return restTemplate.getForObject(url, ContentResponse.class);
     }
 
-    public MovieResponse getTopRatedMovies() {
+    public ContentResponse getTopRatedMovies() {
         String url = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/movie/top_rated")
                 .queryParam("api_key", apiKey)
@@ -42,10 +42,10 @@ public class TmdbApiClient {
                 .queryParam("region", "KR")
                 .toUriString();
 
-        return restTemplate.getForObject(url, MovieResponse.class);
+        return restTemplate.getForObject(url, ContentResponse.class);
     }
 
-    public MovieResponse getUpcomingMovies() {
+    public ContentResponse getUpcomingMovies() {
         String url = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/movie/upcoming")
                 .queryParam("api_key", apiKey)
@@ -53,10 +53,10 @@ public class TmdbApiClient {
                 .queryParam("region", "KR")
                 .toUriString();
 
-        return restTemplate.getForObject(url, MovieResponse.class);
+        return restTemplate.getForObject(url, ContentResponse.class);
     }
 
-    public MovieResponse getNowPlayingMovies() {
+    public ContentResponse getNowPlayingMovies() {
         String url = UriComponentsBuilder.fromHttpUrl(baseUrl)
                 .path("/movie/now_playing")
                 .queryParam("api_key", apiKey)
@@ -64,7 +64,7 @@ public class TmdbApiClient {
                 .queryParam("region", "KR")
                 .toUriString();
 
-        return restTemplate.getForObject(url, MovieResponse.class);
+        return restTemplate.getForObject(url, ContentResponse.class);
     }
 
     public Object getMovieDetails(Long movieId) {
