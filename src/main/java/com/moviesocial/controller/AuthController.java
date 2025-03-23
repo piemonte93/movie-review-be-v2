@@ -3,14 +3,15 @@ package com.moviesocial.controller;
 import com.moviesocial.model.ERole;
 import com.moviesocial.model.Role;
 import com.moviesocial.model.User;
-import com.moviesocial.payload.request.LoginRequest;
-import com.moviesocial.payload.request.SignupRequest;
+import com.moviesocial.payload.request.*;
 import com.moviesocial.payload.response.JwtResponse;
 import com.moviesocial.payload.response.MessageResponse;
+import com.moviesocial.payload.response.TokenResponse;
 import com.moviesocial.repository.RoleRepository;
 import com.moviesocial.repository.UserRepository;
 import com.moviesocial.security.jwt.JwtUtils;
 import com.moviesocial.security.services.UserDetailsImpl;
+import com.moviesocial.service.PasswordResetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -43,6 +44,9 @@ public class AuthController {
 
     @Autowired
     JwtUtils jwtUtils;
+
+    @Autowired
+    PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
@@ -106,5 +110,41 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> requestPasswordReset(@RequestBody PasswordResetRequest request) {
+        boolean result = passwordResetService.requestPasswordReset(request.getEmail());
+
+        if (result) {
+            return ResponseEntity.ok(new MessageResponse("인증 코드가 이메일로 전송되었습니다."));
+        } else {
+            // 실패했더라도 보안을 위해 성공한 것처럼 응답
+            return ResponseEntity.ok(new MessageResponse("인증 코드가 이메일로 전송되었습니다."));
+        }
+    }
+
+    @PostMapping("/verify-code")
+    public ResponseEntity<?> verifyCode(@RequestBody VerifyCodeRequest request) {
+        try {
+            String token = passwordResetService.verifyCode(request.getEmail(), request.getCode());
+            return ResponseEntity.ok(new TokenResponse(token));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        try {
+            // 요청 본문 로깅
+            System.out.println("요청 데이터: " + request);
+            System.out.println("토큰: " + request.getToken() + ", 비밀번호: " + (request.getNewPassword() != null ? "******" : "null"));
+            
+            passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+            return ResponseEntity.ok(new MessageResponse("비밀번호가 성공적으로 재설정되었습니다."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
     }
 }
