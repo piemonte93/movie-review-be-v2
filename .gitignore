@@ -322,3 +322,10 @@ gradle-app.setting
 *.hprof
 
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij+all,gradle,visualstudiocode,react,node
+
+### bin ###
+bin/
+bin/.settings/
+bin/src
+bin/.gitignore
+bin/pom.xml
