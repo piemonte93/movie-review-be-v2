@@ -68,12 +68,6 @@ public class AuthController {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    @Value("${app.google.clientId}")
-    private String googleClientId;
-
-    @Value("${app.google.clientSecret}")
-    private String googleClientSecret;
-
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
         // 인증 시도
@@ -183,8 +177,8 @@ public class AuthController {
         // 구글 OAuth 인증 URL
         String googleOAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
         
-        // OAuth 파라미터 - 환경 변수에서 가져온 값 사용
-        String clientId = googleClientId;
+        // OAuth 파라미터
+        String clientId = "258843350540-st6i0fcbd84togukmc0vt95l5qssf457.apps.googleusercontent.com"; // application.properties에서 설정한 클라이언트 ID 사용
         String responseType = "code";
         String scope = "email profile";
         
@@ -217,10 +211,10 @@ public class AuthController {
         System.out.println("전달받은 state 값: " + state);
         
         try {
-            // 토큰 교환 요청 준비 - 환경 변수에서 가져온 값 사용
+            // 토큰 교환 요청 준비
             String tokenUrl = "https://oauth2.googleapis.com/token";
-            String clientId = googleClientId;
-            String clientSecret = googleClientSecret;
+            String clientId = "258843350540-st6i0fcbd84togukmc0vt95l5qssf457.apps.googleusercontent.com";
+            String clientSecret = "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";
             String redirectUri = "http://localhost:8080/api/auth/oauth2/callback/google"; // 구글 콘솔에 등록된 URI와 일치해야 함
             
             // RestTemplate을 사용하여 토큰 교환 요청
