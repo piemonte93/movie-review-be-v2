@@ -60,7 +60,7 @@ public class PasswordResetService {
         tokenRepository.save(token);
 
         // 이메일 발송 (비동기)
-        emailService.sendVerificationCode(user.getEmail(), verificationCode)
+        emailService.sendPasswordResetCode(user.getEmail(), verificationCode)
             .exceptionally(ex -> {
                 log.error("이메일 전송 실패: {}", ex.getMessage());
                 return false;

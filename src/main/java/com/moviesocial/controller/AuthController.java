@@ -32,6 +32,11 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import com.moviesocial.service.EmailVerificationService;
+import com.moviesocial.service.EmailService;
+import com.moviesocial.payload.response.CheckAvailabilityResponse;
+import com.moviesocial.payload.request.EmailVerificationRequest;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -43,6 +48,7 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
     @Autowired
     AuthenticationManager authenticationManager;
@@ -68,11 +74,20 @@ public class AuthController {
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    @Value("${app.google.clientId}")
+    @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
-
-    @Value("${app.google.clientSecret}")
+    
+    @Value("${spring.security.oauth2.client.registration.google.client-secret}")
     private String googleClientSecret;
+    
+    @Value("${spring.security.oauth2.client.registration.google.redirect-uri}")
+    private String googleRedirectUri;
+
+    @Autowired
+    private EmailVerificationService emailVerificationService;
+    
+    @Autowired
+    private EmailService emailService;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
@@ -389,7 +404,7 @@ public class AuthController {
     public ResponseEntity<?> checkUsername(@RequestParam String username) {
         try {
             boolean exists = userRepository.existsByUsername(username);
-            return ResponseEntity.ok(Map.of("available", !exists));
+            return ResponseEntity.ok(new CheckAvailabilityResponse(!exists));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("닉네임 중복 확인 중 오류 발생: " + e.getMessage()));
@@ -476,5 +491,49 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("계정 삭제 중 오류 발생: " + e.getMessage()));
         }
+    }
+
+    // 이메일 중복 체크 API
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmailAvailability(@RequestParam String email) {
+        Boolean isAvailable = !userRepository.existsByEmail(email);
+        return ResponseEntity.ok(new CheckAvailabilityResponse(isAvailable));
+    }
+
+    // 이메일 인증 코드 전송 API
+    @PostMapping("/send-verification-code")
+    public ResponseEntity<?> sendVerificationCode(@RequestBody EmailVerificationRequest request) {
+        String email = request.getEmail();
+        
+        // 6자리 랜덤 코드 생성
+        String verificationCode = emailVerificationService.generateRandomCode(6);
+        
+        // 인증 코드 저장 (세션 또는 DB)
+        emailVerificationService.saveVerificationCode(email, verificationCode);
+        
+        // 이메일 발송
+        emailService.sendVerificationCode(email, verificationCode)
+                .exceptionally(ex -> {
+                    log.error("이메일 전송 실패: {}", ex.getMessage());
+                    return false;
+                });
+                
+        return ResponseEntity.ok(new MessageResponse("인증 코드가 이메일로 전송되었습니다."));
+    }
+    
+    // 이메일 인증 코드 확인 API
+    @PostMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestBody EmailVerificationRequest request) {
+        String email = request.getEmail();
+        String code = request.getCode();
+        
+        boolean isValid = emailVerificationService.verifyCode(email, code);
+        
+        if (!isValid) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("잘못된 인증 코드입니다."));
+        }
+        
+        return ResponseEntity.ok(new MessageResponse("이메일 인증이 완료되었습니다."));
     }
 }
