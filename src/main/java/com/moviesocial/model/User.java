@@ -39,6 +39,9 @@ public class User {
     @Column
     private String bio;
 
+    @Column(nullable = false)
+    private boolean socialLogin = false;  // 소셜 로그인 여부, 기본값은 false (일반 회원)
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

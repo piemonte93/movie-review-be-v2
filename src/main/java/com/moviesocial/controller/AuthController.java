@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -91,30 +92,51 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
-        // 인증 시도
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+        try {
+            // 사용자 확인
+            User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+            
+            // 소셜 로그인 계정인 경우
+            if (user.isSocialLogin()) {
+                return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("이 계정은 구글 로그인으로 가입된 계정입니다. 구글 로그인을 이용해주세요."));
+            }
+            
+            // 인증 시도
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
-        // 인증 성공 시 SecurityContext에 저장
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+            // 인증 성공 시 SecurityContext에 저장
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // JWT 토큰 생성
-        String jwt = jwtUtils.generateJwtToken(authentication);
+            // JWT 토큰 생성
+            String jwt = jwtUtils.generateJwtToken(authentication);
 
-        // 사용자 상세 정보 가져오기
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            // 사용자 상세 정보 가져오기
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        // 사용자 권한 목록
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+            // 사용자 권한 목록
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
 
-        // 응답 생성
-        return ResponseEntity.ok(new JwtResponse(jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles));
+            // 응답 생성
+            return ResponseEntity.ok(new JwtResponse(jwt,
+                    userDetails.getId(),
+                    userDetails.getUsername(),
+                    userDetails.getEmail(),
+                    roles));
+        } catch (RuntimeException e) {
+            return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new MessageResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new MessageResponse("로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요."));
+        }
     }
 
     @PostMapping("/register")
@@ -138,6 +160,7 @@ public class AuthController {
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
+        user.setSocialLogin(false); // 일반 회원가입 - 소셜 로그인 아님
 
         // 권한 설정
         Set<Role> roles = new HashSet<>();
@@ -286,6 +309,15 @@ public class AuthController {
             String email = (String) userInfo.get("email");
             String name = (String) userInfo.get("name");
             
+            // 이미 존재하는 사용자인지 확인
+            Optional<User> existingUserOpt = userRepository.findByEmail(email);
+            
+            // 일반 회원가입으로 가입된 계정인 경우
+            if (existingUserOpt.isPresent() && !existingUserOpt.get().isSocialLogin()) {
+                // 일반 회원가입 계정으로 이미 존재함을 알리는 오류 페이지로 리다이렉트
+                return new RedirectView(frontendUrl + "/oauth2/redirect?error=email_exists_regular_account");
+            }
+            
             // 기존 사용자인지 새 사용자인지 판단하기 위한 변수
             boolean userExists = userRepository.existsByEmail(email);
             // 새로운 변수로 분리하여 람다 내부에서 사용할 수 있게 함
@@ -304,6 +336,7 @@ public class AuthController {
                     // 초기 닉네임을 이메일로 설정 - 이후 프론트엔드에서 변경
                     newUser.setUsername(email);
                     newUser.setPassword(encoder.encode("OAUTH2_" + System.currentTimeMillis())); // 임의 패스워드
+                    newUser.setSocialLogin(true); // 소셜 로그인으로 설정
                     
                     // 권한 설정
                     Set<Role> roles = new HashSet<>();
