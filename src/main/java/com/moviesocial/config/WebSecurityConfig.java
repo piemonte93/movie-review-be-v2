@@ -73,6 +73,7 @@ public class WebSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/oauth2/**").permitAll() // OAuth2 엔드포인트 접근 허용
                         .requestMatchers("/api/contents/**").permitAll() // 콘텐츠 API는 인증 없이 접근 가능
                         .anyRequest().authenticated()
                 );

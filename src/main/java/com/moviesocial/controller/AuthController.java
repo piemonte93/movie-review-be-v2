@@ -20,9 +20,23 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,6 +61,12 @@ public class AuthController {
 
     @Autowired
     PasswordResetService passwordResetService;
+    
+    @Value("${app.oauth2.redirectUri:http://localhost:5173/oauth2/redirect}")
+    private String redirectUri;
+    
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody LoginRequest loginRequest) {
@@ -145,6 +165,310 @@ public class AuthController {
             return ResponseEntity.ok(new MessageResponse("비밀번호가 성공적으로 재설정되었습니다."));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * Google OAuth2 인증 시작 엔드포인트
+     * 프론트엔드에서 이 URL로 리다이렉트하면 구글 로그인 페이지로 이동
+     */
+    @GetMapping("/oauth2/authorize/google")
+    public RedirectView authorizeGoogle(@RequestParam(value = "redirect_uri", required = false) String redirectUriParam) {
+        // 구글 OAuth 인증 URL
+        String googleOAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
+        
+        // OAuth 파라미터
+        String clientId = "258843350540-st6i0fcbd84togukmc0vt95l5qssf457.apps.googleusercontent.com"; // application.properties에서 설정한 클라이언트 ID 사용
+        String responseType = "code";
+        String scope = "email profile";
+        
+        // 리다이렉트 URI는 콜백 URL이어야 함
+        // 여기서는 Google 콘솔에 등록된 콜백 URL을 사용해야 함
+        String finalRedirectUri = "http://localhost:8080/api/auth/oauth2/callback/google";
+        
+        // 프론트엔드 리다이렉트 URI를 상태 파라미터로 전달
+        String state = redirectUriParam != null ? redirectUriParam : redirectUri;
+        
+        // 구글 로그인 URL 생성
+        String authorizationUrl = String.format(
+            "%s?client_id=%s&redirect_uri=%s&response_type=%s&scope=%s&state=%s",
+            googleOAuthUrl, clientId, finalRedirectUri, responseType, scope, state
+        );
+        
+        System.out.println("리다이렉트 URL: " + authorizationUrl);
+        
+        return new RedirectView(authorizationUrl);
+    }
+    
+    /**
+     * Google OAuth2 콜백 처리 엔드포인트
+     * 구글 로그인 후 이 URL로 리다이렉트됨
+     */
+    @GetMapping("/oauth2/callback/google")
+    public RedirectView oauthCallback(@RequestParam("code") String code, @RequestParam(value = "state", required = false) String state) throws IOException {
+        // 디버깅을 위한 코드 출력
+        System.out.println("Google에서 받은 인증 코드: " + code);
+        System.out.println("전달받은 state 값: " + state);
+        
+        try {
+            // 토큰 교환 요청 준비
+            String tokenUrl = "https://oauth2.googleapis.com/token";
+            String clientId = "258843350540-st6i0fcbd84togukmc0vt95l5qssf457.apps.googleusercontent.com";
+            String clientSecret = "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";
+            String redirectUri = "http://localhost:8080/api/auth/oauth2/callback/google"; // 구글 콘솔에 등록된 URI와 일치해야 함
+            
+            // RestTemplate을 사용하여 토큰 교환 요청
+            RestTemplate restTemplate = new RestTemplate();
+            
+            // 요청 바디 준비
+            MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+            requestBody.add("code", code);
+            requestBody.add("client_id", clientId);
+            requestBody.add("client_secret", clientSecret);
+            requestBody.add("redirect_uri", redirectUri);
+            requestBody.add("grant_type", "authorization_code");
+            
+            // 헤더 설정
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            
+            // HTTP 요청 엔티티 생성
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(requestBody, headers);
+            
+            // 토큰 교환 요청 실행
+            ResponseEntity<Map> response = restTemplate.exchange(
+                tokenUrl,
+                HttpMethod.POST,
+                requestEntity,
+                Map.class
+            );
+            
+            // 응답에서 액세스 토큰 추출
+            Map<String, Object> responseBody = response.getBody();
+            String accessToken = (String) responseBody.get("access_token");
+            
+            // Google API를 사용하여 사용자 정보 가져오기
+            String userInfoUrl = "https://www.googleapis.com/oauth2/v3/userinfo";
+            HttpHeaders userInfoHeaders = new HttpHeaders();
+            userInfoHeaders.set("Authorization", "Bearer " + accessToken);
+            HttpEntity<String> userInfoRequestEntity = new HttpEntity<>(userInfoHeaders);
+            
+            ResponseEntity<Map> userInfoResponse = restTemplate.exchange(
+                userInfoUrl,
+                HttpMethod.GET,
+                userInfoRequestEntity,
+                Map.class
+            );
+            
+            // 사용자 정보 추출
+            Map<String, Object> userInfo = userInfoResponse.getBody();
+            String email = (String) userInfo.get("email");
+            String name = (String) userInfo.get("name");
+            
+            // 기존 사용자인지 새 사용자인지 판단하기 위한 변수
+            boolean userExists = userRepository.existsByEmail(email);
+            // 새로운 변수로 분리하여 람다 내부에서 사용할 수 있게 함
+            final boolean[] isNewUserFlag = {false};
+            
+            System.out.println("사용자 이메일: " + email);
+            System.out.println("사용자가 이미 존재하는지: " + userExists);
+            
+            // 사용자 정보로 회원가입 또는 로그인 처리
+            User user = userRepository.findByEmail(email)
+                .orElseGet(() -> {
+                    // 신규 사용자 등록
+                    System.out.println("새 사용자 등록 - 이메일: " + email);
+                    User newUser = new User();
+                    newUser.setEmail(email);
+                    // 초기 닉네임을 이메일로 설정 - 이후 프론트엔드에서 변경
+                    newUser.setUsername(email);
+                    newUser.setPassword(encoder.encode("OAUTH2_" + System.currentTimeMillis())); // 임의 패스워드
+                    
+                    // 권한 설정
+                    Set<Role> roles = new HashSet<>();
+                    Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                        .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+                    roles.add(userRole);
+                    newUser.setRoles(roles);
+                    
+                    // 새 사용자 생성 후 isNewUser를 true로 설정
+                    isNewUserFlag[0] = true;
+                    
+                    // 새 사용자 플래그 설정
+                    return userRepository.save(newUser);
+                });
+            
+            // 새 사용자 여부 체크 (닉네임이 이메일과 같은 경우)
+            boolean isNewUser = isNewUserFlag[0];
+            if (!isNewUser) {
+                isNewUser = user.getUsername().equals(user.getEmail());
+            }
+            
+            System.out.println("최종 isNewUser 값: " + isNewUser);
+            System.out.println("사용자 닉네임: " + user.getUsername());
+            System.out.println("사용자 이메일: " + user.getEmail());
+            
+            // JWT 토큰 생성
+            UserDetailsImpl userDetails = UserDetailsImpl.build(user);
+            Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails, null, userDetails.getAuthorities());
+            
+            String jwt = jwtUtils.generateJwtToken(authentication);
+            
+            // 프론트엔드로 리다이렉트 (토큰과 새 사용자 여부 포함)
+            // state 파라미터가 있는 경우 해당 URL로 리다이렉트, 없는 경우 기본 리다이렉트 URL 사용
+            String redirectUrl = (state != null && !state.isEmpty()) ? state : frontendUrl + "/oauth2/redirect";
+            return new RedirectView(redirectUrl + "?token=" + jwt + "&isNewUser=" + isNewUser);
+        } catch (Exception e) {
+            // 오류 발생 시 에러 페이지로 리다이렉트
+            System.err.println("OAuth2 처리 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            String redirectUrl = (state != null && !state.isEmpty()) ? state : frontendUrl + "/oauth2/redirect";
+            return new RedirectView(redirectUrl + "?error=authentication_failed");
+        }
+    }
+    
+    /**
+     * JWT 토큰으로 사용자 정보 조회
+     */
+    @GetMapping("/user-info")
+    public ResponseEntity<?> getUserInfo(@RequestHeader("Authorization") String authHeader) {
+        try {
+            // "Bearer " 부분 제거
+            String token = authHeader.substring(7);
+            
+            // 토큰 검증
+            if (jwtUtils.validateJwtToken(token)) {
+                String email = jwtUtils.getEmailFromJwtToken(token);
+                User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+                
+                // 사용자 권한 목록
+                List<String> roles = user.getRoles().stream()
+                    .map(role -> role.getName().name())
+                    .collect(Collectors.toList());
+                
+                // 새 사용자 여부 체크 (닉네임이 이메일과 같은 경우)
+                boolean isNewUser = user.getUsername().equals(user.getEmail());
+                
+                System.out.println("user-info API - 사용자 이메일: " + user.getEmail());
+                System.out.println("user-info API - 사용자 닉네임: " + user.getUsername());
+                System.out.println("user-info API - isNewUser: " + isNewUser);
+                
+                // 응답 생성
+                JwtResponse response = new JwtResponse(
+                    token,
+                    user.getId(),
+                    user.getUsername(),
+                    user.getEmail(),
+                    roles
+                );
+                
+                // 새 사용자 여부 추가
+                response.setIsNewUser(isNewUser);
+                
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("유효하지 않은 토큰입니다."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("토큰 처리 중 오류: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 닉네임 중복 확인 API
+     */
+    @GetMapping("/check-username")
+    public ResponseEntity<?> checkUsername(@RequestParam String username) {
+        try {
+            boolean exists = userRepository.existsByUsername(username);
+            return ResponseEntity.ok(Map.of("available", !exists));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new MessageResponse("닉네임 중복 확인 중 오류 발생: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 닉네임 업데이트 API
+     */
+    @PostMapping("/update-username")
+    public ResponseEntity<?> updateUsername(@RequestBody Map<String, String> request, @RequestHeader("Authorization") String authHeader) {
+        try {
+            // 토큰에서 사용자 정보 추출
+            String token = authHeader.substring(7);
+            
+            if (!jwtUtils.validateJwtToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("유효하지 않은 토큰입니다."));
+            }
+            
+            String email = jwtUtils.getEmailFromJwtToken(token);
+            User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+            
+            // 닉네임 중복 확인
+            String newUsername = request.get("username");
+            if (userRepository.existsByUsername(newUsername) && !user.getUsername().equals(newUsername)) {
+                return ResponseEntity.badRequest().body(new MessageResponse("이미 사용 중인 닉네임입니다."));
+            }
+            
+            // 닉네임 업데이트
+            user.setUsername(newUsername);
+            userRepository.save(user);
+            
+            // 사용자 권한 목록
+            List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .collect(Collectors.toList());
+            
+            // 응답 생성
+            return ResponseEntity.ok(new JwtResponse(
+                token,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                roles
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new MessageResponse("닉네임 업데이트 중 오류 발생: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * 신규 OAuth 사용자 계정 삭제 API
+     * 닉네임 설정을 취소할 경우 임시로 생성된 계정 삭제
+     */
+    @DeleteMapping("/cancel-oauth-signup")
+    public ResponseEntity<?> cancelOAuthSignup(@RequestHeader("Authorization") String authHeader) {
+        try {
+            // 토큰에서 사용자 정보 추출
+            String token = authHeader.substring(7);
+            
+            if (!jwtUtils.validateJwtToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("유효하지 않은 토큰입니다."));
+            }
+            
+            String email = jwtUtils.getEmailFromJwtToken(token);
+            User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+            
+            // 신규 사용자 여부 확인 (닉네임이 이메일과 같은지)
+            boolean isNewUser = user.getUsername().equals(user.getEmail());
+            
+            if (isNewUser) {
+                // 신규 사용자만 삭제 가능
+                System.out.println("신규 가입 취소 - 사용자 삭제: " + email);
+                userRepository.delete(user);
+                return ResponseEntity.ok(new MessageResponse("회원가입이 취소되었습니다."));
+            } else {
+                // 이미 닉네임이 설정된 기존 사용자는 삭제 불가
+                return ResponseEntity.badRequest().body(new MessageResponse("이미 가입된 사용자는 삭제할 수 없습니다."));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new MessageResponse("계정 삭제 중 오류 발생: " + e.getMessage()));
         }
     }
 }
