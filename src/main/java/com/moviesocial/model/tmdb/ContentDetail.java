@@ -79,6 +79,12 @@ public class ContentDetail {
 
     @JsonProperty("spoken_languages")
     private List<SpokenLanguage> spokenLanguages;
+    
+    // 출연진 정보
+    private List<Cast> cast;
+    
+    // 제작진 정보
+    private List<Crew> crew;
 
     @Data
     @NoArgsConstructor
@@ -121,5 +127,60 @@ public class ContentDetail {
 
         @JsonProperty("english_name")
         private String englishName;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Cast {
+        private Long id;
+        private String name;
+        private String character;
+        
+        @JsonProperty("profile_path")
+        private String profilePath;
+        
+        private Integer order;
+        private Integer gender;
+        
+        @JsonProperty("known_for_department")
+        private String knownForDepartment;
+        
+        @JsonProperty("original_name")
+        private String originalName;
+        
+        private Double popularity;
+        
+        @JsonProperty("cast_id")
+        private Integer castId;
+        
+        @JsonProperty("credit_id")
+        private String creditId;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Crew {
+        private Long id;
+        private String name;
+        private String department;
+        private String job;
+        
+        @JsonProperty("profile_path")
+        private String profilePath;
+        
+        private Integer gender;
+        
+        @JsonProperty("known_for_department")
+        private String knownForDepartment;
+        
+        @JsonProperty("original_name")
+        private String originalName;
+        
+        private Double popularity;
+        
+        @JsonProperty("credit_id")
+        private String creditId;
     }
 }

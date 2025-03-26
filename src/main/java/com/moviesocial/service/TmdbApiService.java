@@ -102,7 +102,18 @@ public class TmdbApiService {
                 .build()
                 .toUriString();
 
-        return restTemplate.getForObject(url, ContentDetail.class);
+        ContentDetail contentDetail = restTemplate.getForObject(url, ContentDetail.class);
+        
+        // 출연진과 제작진 정보 가져오기
+        if (contentDetail != null) {
+            ContentDetail creditsInfo = getMovieCredits(movieId);
+            if (creditsInfo != null) {
+                contentDetail.setCast(creditsInfo.getCast());
+                contentDetail.setCrew(creditsInfo.getCrew());
+            }
+        }
+        
+        return contentDetail;
     }
 
     // 영화 비디오 목록을 가져오는 메서드
@@ -186,7 +197,18 @@ public class TmdbApiService {
                 .build()
                 .toUriString();
 
-        return restTemplate.getForObject(url, ContentDetail.class);
+        ContentDetail contentDetail = restTemplate.getForObject(url, ContentDetail.class);
+        
+        // 출연진과 제작진 정보 가져오기
+        if (contentDetail != null) {
+            ContentDetail creditsInfo = getTvCredits(tvId);
+            if (creditsInfo != null) {
+                contentDetail.setCast(creditsInfo.getCast());
+                contentDetail.setCrew(creditsInfo.getCrew());
+            }
+        }
+        
+        return contentDetail;
     }
 
     // TV 프로그램 비디오 목록을 가져오는 메서드
@@ -587,5 +609,29 @@ public class TmdbApiService {
 
         String url = builder.build().toUriString();
         return restTemplate.getForObject(url, ContentResponse.class);
+    }
+
+    // 영화 출연진/제작진 정보를 가져오는 메서드
+    public ContentDetail getMovieCredits(Long movieId) {
+        String url = UriComponentsBuilder
+                .fromHttpUrl(baseUrl + "/movie/" + movieId + "/credits")
+                .queryParam("api_key", apiKey)
+                .queryParam("language", "ko-KR")
+                .build()
+                .toUriString();
+
+        return restTemplate.getForObject(url, ContentDetail.class);
+    }
+
+    // TV 프로그램 출연진/제작진 정보를 가져오는 메서드
+    public ContentDetail getTvCredits(Long tvId) {
+        String url = UriComponentsBuilder
+                .fromHttpUrl(baseUrl + "/tv/" + tvId + "/credits")
+                .queryParam("api_key", apiKey)
+                .queryParam("language", "ko-KR")
+                .build()
+                .toUriString();
+
+        return restTemplate.getForObject(url, ContentDetail.class);
     }
 }

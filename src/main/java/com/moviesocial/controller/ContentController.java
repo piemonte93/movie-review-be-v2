@@ -76,6 +76,16 @@ public class ContentController {
     }
 
     /**
+     * 영화 출연진/제작진 정보를 가져오는 API 엔드포인트
+     * @param id 영화 ID
+     * @return 영화 출연진/제작진 정보
+     */
+    @GetMapping("/movie/{id}/credits")
+    public ResponseEntity<ContentDetail> getMovieCredits(@PathVariable Long id) {
+        return ResponseEntity.ok(tmdbApiService.getMovieCredits(id));
+    }
+
+    /**
      * TV 프로그램 상세 정보를 가져오는 API 엔드포인트
      * @param id TV 프로그램 ID
      * @return TV 프로그램 상세 정보
@@ -103,6 +113,16 @@ public class ContentController {
     @GetMapping("/tv/{id}/reviews")
     public ResponseEntity<ReviewResponse> getTvReviews(@PathVariable Long id) {
         return ResponseEntity.ok(tmdbApiService.getTvReviews(id));
+    }
+
+    /**
+     * TV 프로그램 출연진/제작진 정보를 가져오는 API 엔드포인트
+     * @param id TV 프로그램 ID
+     * @return TV 프로그램 출연진/제작진 정보
+     */
+    @GetMapping("/tv/{id}/credits")
+    public ResponseEntity<ContentDetail> getTvCredits(@PathVariable Long id) {
+        return ResponseEntity.ok(tmdbApiService.getTvCredits(id));
     }
 
     /**
