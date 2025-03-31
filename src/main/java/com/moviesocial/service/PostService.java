@@ -41,7 +41,15 @@ public class PostService {
     
     public Page<PostResponse> getAllPosts(Pageable pageable, Long currentUserId) {
         Page<Post> posts = postRepository.findAllByOrderByCreatedAtDesc(pageable);
-        return posts.map(post -> convertToResponse(post, currentUserId));
+        System.out.println("Found " + posts.getTotalElements() + " posts");
+        System.out.println("Current page: " + posts.getNumber());
+        System.out.println("Total pages: " + posts.getTotalPages());
+        
+        return posts.map(post -> {
+            PostResponse response = convertToResponse(post, currentUserId);
+            System.out.println("Converting post ID: " + post.getId() + " to response");
+            return response;
+        });
     }
     
     public PostResponse getPostById(Long id, Long currentUserId) {
@@ -241,6 +249,12 @@ public class PostService {
     
     // Entity를 Response DTO로 변환하는 메서드
     private PostResponse convertToResponse(Post post, Long currentUserId) {
+        System.out.println("Converting post to response - ID: " + post.getId());
+        System.out.println("Title: " + post.getTitle());
+        System.out.println("Content length: " + post.getContent().length());
+        System.out.println("Created at: " + post.getCreatedAt());
+        System.out.println("User ID: " + post.getUser().getId());
+        
         PostResponse response = new PostResponse();
         response.setId(post.getId());
         response.setTitle(post.getTitle());
@@ -255,8 +269,8 @@ public class PostService {
         ));
         
         // 좋아요, 싫어요 카운트
-        response.setLikeCount(post.getLikeCount());
-        response.setDislikeCount(post.getDislikeCount());
+        response.setLikeCount((int) postRepository.countLikesByPostId(post.getId()));
+        response.setDislikeCount((int) postRepository.countDislikesByPostId(post.getId()));
         
         // 현재 사용자가 좋아요/싫어요 했는지 여부
         if (currentUserId != null) {
@@ -279,6 +293,7 @@ public class PostService {
                 ))
                 .collect(Collectors.toSet()));
         
+        System.out.println("Successfully converted post to response");
         return response;
     }
 } 

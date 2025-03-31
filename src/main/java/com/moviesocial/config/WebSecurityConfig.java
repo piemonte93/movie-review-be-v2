@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
@@ -58,40 +59,48 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // CORS 설정 활성화
-                .csrf(csrf -> csrf.disable())
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(
-                        (request, response, ex) -> {
-                            response.sendError(
-                                    HttpServletResponse.SC_UNAUTHORIZED,
-                                    "인증이 필요합니다"
-                            );
-                        }
-                ))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/auth/oauth2/**").permitAll() // OAuth2 엔드포인트 접근 허용
-                        .requestMatchers("/api/contents/**").permitAll() // 콘텐츠 API는 인증 없이 접근 가능
-                        .anyRequest().authenticated()
-                );
-
-        http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
-
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/contents/trending-all").permitAll()
+                .requestMatchers("/api/contents/now-playing").permitAll()
+                .requestMatchers("/api/contents/top-rated").permitAll()
+                .requestMatchers("/api/contents/upcoming").permitAll()
+                .requestMatchers("/api/movie-reviews").permitAll()
+                .requestMatchers("/api/movie-reviews/{id}").permitAll()
+                .requestMatchers("/api/movie-reviews/{id}/comments").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/movie-reviews").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/movie-reviews/{id}").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/movie-reviews/{id}").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/like").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/dislike").authenticated()
+                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/comments").authenticated()
+                .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"message\":\"인증에 실패했습니다.\"}");
+                })
+            )
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*")); // 모든 오리진 허용
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*")); // 모든 헤더 허용
-        configuration.setAllowCredentials(false); // credentials 허용 안함 (와일드카드 오리진과 함께 사용할 때 필요)
-        configuration.setMaxAge(3600L); // 1시간 동안 preflight 캐시
-
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

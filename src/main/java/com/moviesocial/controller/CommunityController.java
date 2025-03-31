@@ -5,6 +5,7 @@ import com.moviesocial.payload.request.CommentRequest;
 import com.moviesocial.payload.request.PostRequest;
 import com.moviesocial.payload.response.CommentResponse;
 import com.moviesocial.payload.response.PostResponse;
+import com.moviesocial.security.services.UserDetailsImpl;
 import com.moviesocial.service.CommentService;
 import com.moviesocial.service.PostService;
 import jakarta.validation.Valid;
@@ -16,7 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -34,11 +37,20 @@ public class CommunityController {
     @GetMapping("/posts")
     public ResponseEntity<Page<PostResponse>> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @AuthenticationPrincipal User currentUser) {
+            @RequestParam(defaultValue = "10") int size) {
         
         Pageable pageable = PageRequest.of(page, size);
-        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        Long currentUserId = null;
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User currentUser = userDetails.getUser();
+            if (currentUser != null) {
+                currentUserId = currentUser.getId();
+            }
+        } catch (Exception e) {
+            // 인증되지 않은 사용자의 경우 currentUserId는 null로 유지
+        }
         
         Page<PostResponse> posts = postService.getAllPosts(pageable, currentUserId);
         return ResponseEntity.ok(posts);
@@ -59,8 +71,14 @@ public class CommunityController {
     @PostMapping("/posts")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PostResponse> createPost(
-            @Valid @RequestBody PostRequest postRequest,
-            @AuthenticationPrincipal User currentUser) {
+            @Valid @RequestBody PostRequest postRequest) {
+        
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = userDetails.getUser();
+        
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
         
         PostResponse post = postService.createPost(postRequest, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(post);
@@ -93,8 +111,14 @@ public class CommunityController {
     @PostMapping("/posts/{id}/like")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PostResponse> likePost(
-            @PathVariable Long id,
-            @AuthenticationPrincipal User currentUser) {
+            @PathVariable Long id) {
+        
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = userDetails.getUser();
+        
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
         
         PostResponse post = postService.likePost(id, currentUser.getId());
         return ResponseEntity.ok(post);
@@ -104,8 +128,14 @@ public class CommunityController {
     @PostMapping("/posts/{id}/dislike")
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<PostResponse> dislikePost(
-            @PathVariable Long id,
-            @AuthenticationPrincipal User currentUser) {
+            @PathVariable Long id) {
+        
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = userDetails.getUser();
+        
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
         
         PostResponse post = postService.dislikePost(id, currentUser.getId());
         return ResponseEntity.ok(post);

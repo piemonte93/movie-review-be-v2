@@ -37,15 +37,19 @@ public class Post {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Builder.Default
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
     
+    @Builder.Default
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PostLike> likes = new HashSet<>();
     
+    @Builder.Default
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<PostDislike> dislikes = new HashSet<>();
     
+    @Builder.Default
     @ManyToMany
     @JoinTable(
             name = "post_mentions",
@@ -61,16 +65,16 @@ public class Post {
     
     // 좋아요 갯수를 반환하는 메서드
     public int getLikeCount() {
-        return likes.size();
+        return likes != null ? likes.size() : 0;
     }
     
     // 싫어요 갯수를 반환하는 메서드
     public int getDislikeCount() {
-        return dislikes.size();
+        return dislikes != null ? dislikes.size() : 0;
     }
     
     // 댓글 갯수를 반환하는 메서드
     public int getCommentCount() {
-        return comments.size();
+        return comments != null ? comments.size() : 0;
     }
 } 
