@@ -54,20 +54,39 @@ public class JwtUtils {
 
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
+            logger.info("JWT 토큰 검증 시작");
+            
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key())
+                    .build()
+                    .parseClaimsJws(authToken)
+                    .getBody();
+            
+            Date expiration = claims.getExpiration();
+            Date now = new Date();
+            long remainingTime = (expiration.getTime() - now.getTime()) / 1000; // 초 단위
+            
+            logger.info("JWT 토큰 검증 성공 - 사용자: {}, 만료시간: {}, 남은시간: {}초", 
+                    claims.getSubject(), 
+                    expiration, 
+                    remainingTime);
+            
             return true;
         } catch (SecurityException e) {
-            logger.error("Invalid JWT signature: {}", e.getMessage());
+            logger.error("JWT 서명이 유효하지 않음: {}", e.getMessage());
         } catch (MalformedJwtException e) {
-            logger.error("Invalid JWT token: {}", e.getMessage());
+            logger.error("JWT 토큰 형식이 잘못됨: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
-            logger.error("JWT token is expired: {}", e.getMessage());
+            logger.error("JWT 토큰이 만료됨. 만료시간: {}, 현재시간: {}", 
+                    e.getClaims().getExpiration(), 
+                    new Date());
         } catch (UnsupportedJwtException e) {
-            logger.error("JWT token is unsupported: {}", e.getMessage());
+            logger.error("지원되지 않는 JWT 토큰: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            logger.error("JWT claims string is empty: {}", e.getMessage());
+            logger.error("JWT claims 문자열이 비어있음: {}", e.getMessage());
         }
 
+        logger.error("JWT 토큰 검증 실패");
         return false;
     }
 }
