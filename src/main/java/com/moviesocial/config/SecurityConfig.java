@@ -1,8 +1,9 @@
 package com.moviesocial.config;
 
 import com.moviesocial.security.jwt.AuthTokenFilter;
+import com.moviesocial.security.jwt.JwtUtils;
 import com.moviesocial.security.services.UserDetailsServiceImpl;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,32 +20,28 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.http.HttpMethod;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-public class WebSecurityConfig {
+@RequiredArgsConstructor
+public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
-    private final AuthTokenFilter authTokenFilter;
+    private final JwtUtils jwtUtils;
 
-    @Autowired
-    public WebSecurityConfig(UserDetailsServiceImpl userDetailsService, AuthTokenFilter authTokenFilter) {
-        this.userDetailsService = userDetailsService;
-        this.authTokenFilter = authTokenFilter;
+    @Bean
+    public AuthTokenFilter authenticationJwtTokenFilter() {
+        return new AuthTokenFilter(jwtUtils, userDetailsService);
     }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
-
         return authProvider;
     }
 
@@ -59,41 +56,6 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/contents/trending-all").permitAll()
-                .requestMatchers("/api/contents/now-playing").permitAll()
-                .requestMatchers("/api/contents/top-rated").permitAll()
-                .requestMatchers("/api/contents/upcoming").permitAll()
-                .requestMatchers("/api/movie-reviews").permitAll()
-                .requestMatchers("/api/movie-reviews/{id}").permitAll()
-                .requestMatchers("/api/movie-reviews/{id}/comments").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/movie-reviews").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/movie-reviews/{id}").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/movie-reviews/{id}").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/like").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/dislike").authenticated()
-                .requestMatchers(HttpMethod.POST, "/api/movie-reviews/{id}/comments").authenticated()
-                .anyRequest().authenticated()
-            )
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("{\"message\":\"인증에 실패했습니다.\"}");
-                })
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
-        
-        return http.build();
-    }
-
-    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
@@ -105,4 +67,23 @@ public class WebSecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-}
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/reviews/**").permitAll()
+                .requestMatchers("/api/contents/**").permitAll()
+                .requestMatchers("/api/review/**").hasRole("USER")
+                .anyRequest().authenticated()
+            )
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+} 

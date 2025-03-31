@@ -1,6 +1,7 @@
 package com.moviesocial.service;
 
 import com.moviesocial.payload.response.ReviewResponse;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -12,7 +13,7 @@ public interface ReviewService {
      * @param size 페이지 크기
      * @return 사용자 리뷰 목록
      */
-    List<ReviewResponse> getUserReviews(String username, int page, int size);
+    Page<ReviewResponse> getUserReviews(String username, int page, int size);
     
     /**
      * 영화에 대한 리뷰를 작성합니다.
@@ -22,7 +23,7 @@ public interface ReviewService {
      * @param rating 평점
      * @return 생성된 리뷰
      */
-    ReviewResponse createReview(String username, Long movieId, String content, Integer rating);
+    ReviewResponse createReview(String username, Long movieId, String content, Double rating);
     
     /**
      * 리뷰를 수정합니다.
@@ -32,7 +33,7 @@ public interface ReviewService {
      * @param rating 평점
      * @return 수정된 리뷰
      */
-    ReviewResponse updateReview(Long reviewId, String username, String content, Integer rating);
+    ReviewResponse updateReview(Long reviewId, String username, String content, Double rating);
     
     /**
      * 리뷰를 삭제합니다.
@@ -40,4 +41,20 @@ public interface ReviewService {
      * @param username 사용자명
      */
     void deleteReview(Long reviewId, String username);
+
+    /**
+     * 모든 리뷰 목록을 가져옵니다.
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return 리뷰 목록
+     */
+    List<ReviewResponse> getAllReviews(int page, int size);
+
+    /**
+     * 전체 리뷰 수를 가져옵니다.
+     * @return 전체 리뷰 수
+     */
+    long getTotalReviews();
+
+    Page<ReviewResponse> getReviewsByMovieId(Long movieId, int page, int size);
 } 

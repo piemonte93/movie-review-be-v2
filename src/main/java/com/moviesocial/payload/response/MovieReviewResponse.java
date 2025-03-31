@@ -18,7 +18,7 @@ public class MovieReviewResponse {
     private String userProfileUrl;
     private String title;
     private String content;
-    private Integer rating;
+    private Double rating;
     private Long movieId;
     private String movieTitle;
     private String moviePoster;

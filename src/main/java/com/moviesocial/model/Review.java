@@ -57,7 +57,7 @@ public class Review {
     private String content;
 
     @NotNull
-    private Integer rating;
+    private Double rating;
     
     @Builder.Default
     private Boolean isSpoiler = false;

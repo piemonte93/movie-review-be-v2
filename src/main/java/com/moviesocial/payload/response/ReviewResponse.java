@@ -19,7 +19,7 @@ public class ReviewResponse {
     private String movieTitle;
     private String moviePosterPath;
     private String content;
-    private Integer rating;
+    private Double rating;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 } 
