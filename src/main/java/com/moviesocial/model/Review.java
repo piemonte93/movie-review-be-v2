@@ -102,6 +102,10 @@ public class Review {
         updatedAt = LocalDateTime.now();
     }
 
+    public int getCommentCount() {
+        return comments != null ? comments.size() : 0;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -173,8 +173,14 @@ public class CommunityController {
     @PreAuthorize("hasRole('USER')")
     public ResponseEntity<CommentResponse> createComment(
             @PathVariable Long postId,
-            @Valid @RequestBody CommentRequest commentRequest,
-            @AuthenticationPrincipal User currentUser) {
+            @Valid @RequestBody CommentRequest commentRequest) {
+        
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User currentUser = userDetails.getUser();
+        
+        if (currentUser == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
         
         CommentResponse comment = commentService.createComment(postId, commentRequest, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(comment);

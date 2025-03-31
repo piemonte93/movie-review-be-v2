@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -14,6 +15,7 @@ public class PostResponse {
     private String title;
     private String content;
     private LocalDateTime createdAt;
+    private Long postId;
     private UserSummary user;
     private int likeCount;
     private int dislikeCount;
@@ -21,6 +23,7 @@ public class PostResponse {
     private boolean liked;
     private boolean disliked;
     private Set<UserSummary> mentions;
+    private List<CommentResponse> comments;
     
     @Data
     @NoArgsConstructor

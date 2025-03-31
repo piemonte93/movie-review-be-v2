@@ -51,7 +51,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.info("인증 정보 설정 완료: {}, 권한: {}", username, userDetails.getAuthorities());
+                    logger.info("인증 정보 설정 완료: {}", username);
                 } else {
                     logger.error("JWT 토큰 검증 실패");
                 }

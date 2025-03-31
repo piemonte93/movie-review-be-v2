@@ -3,6 +3,7 @@ package com.moviesocial.service;
 import com.moviesocial.model.*;
 import com.moviesocial.payload.request.PostRequest;
 import com.moviesocial.payload.response.PostResponse;
+import com.moviesocial.payload.response.CommentResponse;
 import com.moviesocial.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,12 @@ public class PostService {
     
     @Autowired
     private PostDislikeRepository postDislikeRepository;
+    
+    @Autowired
+    private CommentLikeRepository commentLikeRepository;
+    
+    @Autowired
+    private CommentDislikeRepository commentDislikeRepository;
     
     @Autowired
     private NotificationService notificationService;
@@ -260,6 +267,7 @@ public class PostService {
         response.setTitle(post.getTitle());
         response.setContent(post.getContent());
         response.setCreatedAt(post.getCreatedAt());
+        response.setPostId(post.getId());
         
         // 사용자 정보
         response.setUser(new PostResponse.UserSummary(
@@ -269,8 +277,9 @@ public class PostService {
         ));
         
         // 좋아요, 싫어요 카운트
-        response.setLikeCount((int) postRepository.countLikesByPostId(post.getId()));
-        response.setDislikeCount((int) postRepository.countDislikesByPostId(post.getId()));
+        response.setLikeCount(post.getLikeCount());
+        response.setDislikeCount(post.getDislikeCount());
+        response.setCommentCount(post.getCommentCount());
         
         // 현재 사용자가 좋아요/싫어요 했는지 여부
         if (currentUserId != null) {
@@ -281,10 +290,7 @@ public class PostService {
             }
         }
         
-        // 댓글 수
-        response.setCommentCount(post.getCommentCount());
-        
-        // 멘션
+        // 멘션된 사용자 정보
         response.setMentions(post.getMentions().stream()
                 .map(user -> new PostResponse.UserSummary(
                         user.getId(),
@@ -292,6 +298,34 @@ public class PostService {
                         user.getProfileImageUrl()
                 ))
                 .collect(Collectors.toSet()));
+        
+        // 댓글 정보
+        response.setComments(post.getComments().stream()
+                .map(comment -> {
+                    CommentResponse commentResponse = new CommentResponse();
+                    commentResponse.setId(comment.getId());
+                    commentResponse.setContent(comment.getContent());
+                    commentResponse.setCreatedAt(comment.getCreatedAt());
+                    commentResponse.setPostId(comment.getPost().getId());
+                    commentResponse.setUser(new CommentResponse.UserSummary(
+                            comment.getUser().getId(),
+                            comment.getUser().getUsername(),
+                            comment.getUser().getProfileImageUrl()
+                    ));
+                    commentResponse.setLikeCount(comment.getLikeCount());
+                    commentResponse.setDislikeCount(comment.getDislikeCount());
+                    
+                    if (currentUserId != null) {
+                        User currentUser = userRepository.findById(currentUserId).orElse(null);
+                        if (currentUser != null) {
+                            commentResponse.setLiked(commentLikeRepository.existsByCommentAndUser(comment, currentUser));
+                            commentResponse.setDisliked(commentDislikeRepository.existsByCommentAndUser(comment, currentUser));
+                        }
+                    }
+                    
+                    return commentResponse;
+                })
+                .collect(Collectors.toList()));
         
         System.out.println("Successfully converted post to response");
         return response;

@@ -38,9 +38,11 @@ public class Comment {
     private Post post;
     
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<CommentLike> likes = new HashSet<>();
     
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private Set<CommentDislike> dislikes = new HashSet<>();
     
     @PrePersist

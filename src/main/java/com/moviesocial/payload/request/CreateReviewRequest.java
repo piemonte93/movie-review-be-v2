@@ -15,4 +15,6 @@ public class CreateReviewRequest {
     private String movie_poster_path;
     private String content;
     private Double rating;
+    private Boolean is_spoiler;
+    private String title;
 } 

@@ -16,7 +16,7 @@ import java.util.Optional;
 @Repository
 public interface ReviewCommentRepository extends JpaRepository<ReviewComment, Long> {
     
-    Page<ReviewComment> findByReviewOrderByCreatedAtDesc(Review review, Pageable pageable);
+    Page<ReviewComment> findByReview(Review review, Pageable pageable);
     
     List<ReviewComment> findByReviewOrderByCreatedAtDesc(Review review);
     
