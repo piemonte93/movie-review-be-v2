@@ -187,8 +187,6 @@ public class PostService {
             }
         }
         
-        // 변경사항 저장
-        post = postRepository.save(post);
         return convertToResponse(post, userId);
     }
     
@@ -218,8 +216,6 @@ public class PostService {
             postDislikeRepository.save(dislike);
         }
         
-        // 변경사항 저장
-        post = postRepository.save(post);
         return convertToResponse(post, userId);
     }
     

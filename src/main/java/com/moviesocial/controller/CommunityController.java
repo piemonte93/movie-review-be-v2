@@ -205,19 +205,8 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        try {
-            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            User user = userDetails.getUser();
-            
-            if (user == null) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
-            }
-            
-            commentService.deleteComment(id, user.getId());
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "댓글 삭제 권한이 없습니다.");
-        }
+        commentService.deleteComment(id, currentUser.getId());
+        return ResponseEntity.ok().build();
     }
     
     // 댓글 좋아요
