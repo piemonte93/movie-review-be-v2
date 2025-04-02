@@ -174,4 +174,43 @@ public class ContentController {
         return ResponseEntity.ok(tmdbApiService.discoverMovies(effectiveGenres, year, sortBy, page, query,
                 voteAvgMin, voteAvgMax, isKorean, isForeign));
     }
+
+    /**
+     * TV 프로그램 필터링 및 발견 API 엔드포인트
+     * @param genre 단일 장르 ID
+     * @param genres 장르 ID 목록 (콤마로 구분된 문자열)
+     * @param year 년도
+     * @param sortBy 정렬 기준
+     * @param page 페이지 번호
+     * @param query 검색어
+     * @param voteAvgMin 최소 평점
+     * @param voteAvgMax 최대 평점
+     * @param isKorean 한국 TV 프로그램 필터
+     * @param isForeign 외국 TV 프로그램 필터
+     * @param network 방송사
+     * @return 필터링된 TV 프로그램 목록
+     */
+    @GetMapping("/discover/tv")
+    public ResponseEntity<ContentResponse> discoverTvShows(
+            @RequestParam(required = false) Integer genre,
+            @RequestParam(required = false) String genres,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(name = "sort_by", defaultValue = "popularity.desc") String sortBy,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Double voteAvgMin,
+            @RequestParam(required = false) Double voteAvgMax,
+            @RequestParam(required = false) Boolean isKorean,
+            @RequestParam(required = false) Boolean isForeign,
+            @RequestParam(required = false) String network) {
+
+        // 단일 장르와 다중 장르 모두 제공된 경우 다중 장르 사용
+        String effectiveGenres = genres;
+        if (effectiveGenres == null && genre != null) {
+            effectiveGenres = genre.toString();
+        }
+
+        return ResponseEntity.ok(tmdbApiService.discoverTvShows(effectiveGenres, year, sortBy, page, query,
+                voteAvgMin, voteAvgMax, isKorean, isForeign, network));
+    }
 }
