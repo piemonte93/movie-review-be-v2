@@ -1,6 +1,7 @@
 package com.moviesocial.controller;
 
 import com.moviesocial.model.Review;
+import com.moviesocial.model.User;
 import com.moviesocial.payload.request.CreateReviewRequest;
 import com.moviesocial.payload.request.UpdateReviewRequest;
 import com.moviesocial.payload.request.CreateReviewCommentRequest;
@@ -8,8 +9,11 @@ import com.moviesocial.payload.request.UpdateReviewCommentRequest;
 import com.moviesocial.payload.response.MessageResponse;
 import com.moviesocial.payload.response.ReviewResponse;
 import com.moviesocial.payload.response.ReviewCommentResponse;
+import com.moviesocial.repository.ReviewRepository;
+import com.moviesocial.repository.UserRepository;
 import com.moviesocial.security.jwt.JwtUtils;
 import com.moviesocial.service.ReviewService;
+import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -30,6 +34,8 @@ import java.util.HashMap;
 public class ReviewController {
 
     private final ReviewService reviewService;
+    private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
     
     @Autowired
     private JwtUtils jwtUtils;
@@ -57,7 +63,7 @@ public class ReviewController {
     
     /**
      * 리뷰를 수정하는 API
-     * @param authHeader 인증 헤더
+     * @param userDetails 인증된 사용자 정보
      * @param reviewId 리뷰 ID
      * @param request 리뷰 수정 요청
      * @return 수정된 리뷰
@@ -71,8 +77,13 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.updateReview(
                 reviewId,
                 userDetails.getUsername(),
+                request.getTitle(),
                 request.getContent(),
-                request.getRating()
+                request.getRating(),
+                request.getIs_spoiler(),
+                request.getMovie_id(),
+                request.getMovie_title(),
+                request.getMovie_poster_path()
         ));
     }
     
@@ -243,5 +254,26 @@ public class ReviewController {
             @PathVariable Long commentId) {
         reviewService.dislikeReviewComment(reviewId, commentId, userDetails.getUsername());
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 사용자가 특정 영화에 대한 리뷰를 이미 작성했는지 확인하는 API
+     * @param movieId 영화 ID
+     * @param userDetails 인증된 사용자 정보
+     * @return 리뷰 존재 여부 (exists: true/false)
+     */
+    @GetMapping("/reviews/check")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Map<String, Boolean>> checkUserReviewForMovie(
+            @RequestParam(name = "movie_id") Long movieId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        List<Review> existingReviews = reviewRepository.findByUserIdAndMovieId(user.getId(), movieId);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("exists", !existingReviews.isEmpty());
+        
+        return ResponseEntity.ok(response);
     }
 } 

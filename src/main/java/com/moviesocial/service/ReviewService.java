@@ -51,11 +51,17 @@ public interface ReviewService {
      * 리뷰를 수정합니다.
      * @param reviewId 리뷰 ID
      * @param username 사용자명
+     * @param title 수정할 제목
      * @param content 수정할 내용
      * @param rating 수정할 평점
+     * @param isSpoiler 스포일러 여부
+     * @param movieId 영화 ID (선택적)
+     * @param movieTitle 영화 제목 (선택적)
+     * @param moviePoster 영화 포스터 경로 (선택적)
      * @return 수정된 리뷰
      */
-    ReviewResponse updateReview(Long reviewId, String username, String content, Double rating);
+    ReviewResponse updateReview(Long reviewId, String username, String title, String content, Double rating, Boolean isSpoiler,
+                               Long movieId, String movieTitle, String moviePoster);
     
     /**
      * 리뷰를 삭제합니다.

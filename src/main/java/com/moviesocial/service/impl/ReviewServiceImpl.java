@@ -86,7 +86,8 @@ public class ReviewServiceImpl implements ReviewService {
     
     @Override
     @Transactional
-    public ReviewResponse updateReview(Long reviewId, String username, String content, Double rating) {
+    public ReviewResponse updateReview(Long reviewId, String username, String title, String content, Double rating, Boolean isSpoiler,
+                                    Long movieId, String movieTitle, String moviePoster) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
         
@@ -97,9 +98,31 @@ public class ReviewServiceImpl implements ReviewService {
             throw new RuntimeException("이 리뷰를 수정할 권한이 없습니다.");
         }
         
+        // 제목과 내용을 별도로 업데이트
+        review.setTitle(title);
         review.setContent(content);
         review.setRating(rating);
-        review.setTitle(content.substring(0, Math.min(100, content.length())));
+        
+        // isSpoiler가 null이 아니면 업데이트
+        if (isSpoiler != null) {
+            review.setIsSpoiler(isSpoiler);
+        }
+        
+        // 영화 정보 업데이트 (값이 제공된 경우에만)
+        if (movieId != null) {
+            review.setMovieId(movieId);
+        }
+        
+        if (movieTitle != null) {
+            review.setMovieTitle(movieTitle);
+        }
+        
+        if (moviePoster != null) {
+            review.setMoviePoster(moviePoster);
+        }
+        
+        // 업데이트 시간 설정
+        review.setUpdatedAt(LocalDateTime.now());
         
         return convertToReviewResponse(reviewRepository.save(review));
     }
