@@ -213,12 +213,14 @@ public class ReviewController {
      * @return 성공 메시지
      */
     @DeleteMapping("/reviews/{reviewId}/comments/{commentId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteReviewComment(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId,
             @PathVariable Long commentId) {
+        System.out.println("댓글 삭제 컨트롤러 호출 - reviewId: " + reviewId + ", commentId: " + commentId + ", username: " + userDetails.getUsername());
         reviewService.deleteReviewComment(reviewId, commentId, userDetails.getUsername());
+        System.out.println("댓글 삭제 서비스 완료 - HTTP 200 응답");
         return ResponseEntity.ok().build();
     }
 
