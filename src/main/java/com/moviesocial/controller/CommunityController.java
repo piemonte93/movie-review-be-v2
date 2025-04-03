@@ -62,7 +62,18 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        Long currentUserId = null;
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userDetails.getUser();
+            if (user != null) {
+                currentUserId = user.getId();
+            }
+        } catch (Exception e) {
+            // 인증되지 않은 사용자의 경우 currentUserId는 null로 유지
+        }
+        
         PostResponse post = postService.getPostById(id, currentUserId);
         return ResponseEntity.ok(post);
     }
@@ -92,7 +103,15 @@ public class CommunityController {
             @Valid @RequestBody PostRequest postRequest,
             @AuthenticationPrincipal User currentUser) {
         
-        PostResponse post = postService.updatePost(id, postRequest, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        PostResponse post = postService.updatePost(id, postRequest, user.getId());
         return ResponseEntity.ok(post);
     }
     
@@ -103,7 +122,15 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        postService.deletePost(id, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        postService.deletePost(id, user.getId());
         return ResponseEntity.ok().build();
     }
     
@@ -151,7 +178,17 @@ public class CommunityController {
             @AuthenticationPrincipal User currentUser) {
         
         Pageable pageable = PageRequest.of(page, size);
-        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        Long currentUserId = null;
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userDetails.getUser();
+            if (user != null) {
+                currentUserId = user.getId();
+            }
+        } catch (Exception e) {
+            // 인증되지 않은 사용자의 경우 currentUserId는 null로 유지
+        }
         
         Page<PostResponse> posts = postService.searchPosts(query, category, pageable, currentUserId);
         return ResponseEntity.ok(posts);
@@ -163,7 +200,18 @@ public class CommunityController {
             @PathVariable Long postId,
             @AuthenticationPrincipal User currentUser) {
         
-        Long currentUserId = currentUser != null ? currentUser.getId() : null;
+        Long currentUserId = null;
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userDetails.getUser();
+            if (user != null) {
+                currentUserId = user.getId();
+            }
+        } catch (Exception e) {
+            // 인증되지 않은 사용자의 경우 currentUserId는 null로 유지
+        }
+        
         List<CommentResponse> comments = commentService.getCommentsByPostId(postId, currentUserId);
         return ResponseEntity.ok(comments);
     }
@@ -194,7 +242,15 @@ public class CommunityController {
             @Valid @RequestBody CommentRequest commentRequest,
             @AuthenticationPrincipal User currentUser) {
         
-        CommentResponse comment = commentService.updateComment(id, commentRequest, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        CommentResponse comment = commentService.updateComment(id, commentRequest, user.getId());
         return ResponseEntity.ok(comment);
     }
     
@@ -205,7 +261,15 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        commentService.deleteComment(id, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        commentService.deleteComment(id, user.getId());
         return ResponseEntity.ok().build();
     }
     
@@ -216,7 +280,15 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        CommentResponse comment = commentService.likeComment(id, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        CommentResponse comment = commentService.likeComment(id, user.getId());
         return ResponseEntity.ok(comment);
     }
     
@@ -227,7 +299,15 @@ public class CommunityController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
         
-        CommentResponse comment = commentService.dislikeComment(id, currentUser.getId());
+        // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userDetails.getUser();
+        
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        }
+        
+        CommentResponse comment = commentService.dislikeComment(id, user.getId());
         return ResponseEntity.ok(comment);
     }
 } 
