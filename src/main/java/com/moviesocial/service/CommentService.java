@@ -33,6 +33,9 @@ public class CommentService {
     @Autowired
     private NotificationService notificationService;
     
+    @Autowired
+    private NotificationRepository notificationRepository;
+    
     public List<CommentResponse> getCommentsByPostId(Long postId, Long currentUserId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("게시물을 찾을 수 없습니다. ID: " + postId));
@@ -91,14 +94,44 @@ public class CommentService {
     
     @Transactional
     public void deleteComment(Long commentId, Long userId) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
-        
-        if (!comment.getUser().getId().equals(userId)) {
-            throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
+        try {
+            System.out.println("댓글 삭제 서비스 시작 - commentId: " + commentId + ", userId: " + userId);
+            
+            Comment comment = commentRepository.findById(commentId)
+                    .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
+            
+            System.out.println("댓글 조회 성공 - commentId: " + commentId + ", 작성자 ID: " + comment.getUser().getId());
+            
+            if (!comment.getUser().getId().equals(userId)) {
+                System.out.println("권한 오류 - 요청 사용자 ID: " + userId + ", 댓글 작성자 ID: " + comment.getUser().getId());
+                throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
+            }
+            
+            // 1. 댓글과 관련된 알림 삭제
+            System.out.println("댓글 관련 알림 삭제 시작");
+            notificationRepository.deleteByCommentId(commentId);
+            System.out.println("댓글 관련 알림 삭제 완료");
+            
+            // 2. 댓글의 좋아요와 싫어요를 먼저 수동으로 삭제 (참조 무결성을 위해)
+            for (CommentLike like : comment.getLikes()) {
+                commentLikeRepository.delete(like);
+            }
+            
+            for (CommentDislike dislike : comment.getDislikes()) {
+                commentDislikeRepository.delete(dislike);
+            }
+            
+            System.out.println("댓글의 좋아요/싫어요 삭제 완료");
+            
+            // 3. 댓글 삭제
+            commentRepository.delete(comment);
+            
+            System.out.println("댓글 삭제 완료 - commentId: " + commentId);
+        } catch (Exception e) {
+            System.out.println("댓글 삭제 서비스에서 예외 발생: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-        
-        commentRepository.delete(comment);
     }
     
     @Transactional

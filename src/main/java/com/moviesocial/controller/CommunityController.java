@@ -262,15 +262,25 @@ public class CommunityController {
             @AuthenticationPrincipal User currentUser) {
         
         // 현재 사용자 정보를 SecurityContext에서 직접 가져오기
-        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userDetails.getUser();
-        
-        if (user == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userDetails.getUser();
+            
+            if (user == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
+            }
+            
+            System.out.println("댓글 삭제 시도 - commentId: " + id + ", userId: " + user.getId() + ", username: " + user.getUsername());
+            commentService.deleteComment(id, user.getId());
+            System.out.println("댓글 삭제 성공 - commentId: " + id);
+            return ResponseEntity.ok().build();
+        } catch (ClassCastException e) {
+            System.out.println("인증 정보 형변환 오류: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증 정보를 처리할 수 없습니다.");
+        } catch (Exception e) {
+            System.out.println("댓글 삭제 예외 발생: " + e.getMessage());
+            throw e;
         }
-        
-        commentService.deleteComment(id, user.getId());
-        return ResponseEntity.ok().build();
     }
     
     // 댓글 좋아요
