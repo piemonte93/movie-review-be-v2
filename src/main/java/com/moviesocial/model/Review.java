@@ -103,7 +103,7 @@ public class Review {
     }
 
     public int getCommentCount() {
-        return comments != null ? comments.size() : 0;
+        return this.commentCount != null ? this.commentCount : 0;
     }
 
     @Override
