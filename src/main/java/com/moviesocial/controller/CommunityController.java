@@ -320,4 +320,28 @@ public class CommunityController {
         CommentResponse comment = commentService.dislikeComment(id, user.getId());
         return ResponseEntity.ok(comment);
     }
+
+    // 사용자의 게시물 목록 조회
+    @GetMapping("/posts/user/{userId}")
+    public ResponseEntity<Page<PostResponse>> getUserPosts(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Long currentUserId = null;
+        
+        try {
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User currentUser = userDetails.getUser();
+            if (currentUser != null) {
+                currentUserId = currentUser.getId();
+            }
+        } catch (Exception e) {
+            // 인증되지 않은 사용자의 경우 currentUserId는 null로 유지
+        }
+        
+        Page<PostResponse> posts = postService.getUserPosts(userId, pageable, currentUserId);
+        return ResponseEntity.ok(posts);
+    }
 } 

@@ -240,6 +240,14 @@ public class PostService {
         return results.map(post -> convertToResponse(post, currentUserId));
     }
     
+    public Page<PostResponse> getUserPosts(Long userId, Pageable pageable, Long currentUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
+        
+        Page<Post> posts = postRepository.findByUser(user, pageable);
+        return posts.map(post -> convertToResponse(post, currentUserId));
+    }
+    
     // 멘션된 사용자 추출 메서드
     private Set<User> extractMentions(String content) {
         Set<User> mentionedUsers = new HashSet<>();
