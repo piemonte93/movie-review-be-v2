@@ -84,6 +84,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated()
+                .requestMatchers("/api/scraps/**").authenticated()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
