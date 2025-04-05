@@ -30,4 +30,5 @@ public class ReviewResponse {
     private Integer commentCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String contentType;
 } 

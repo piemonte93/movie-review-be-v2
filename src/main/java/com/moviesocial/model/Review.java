@@ -70,6 +70,11 @@ public class Review {
     
     @Builder.Default
     private Integer commentCount = 0;
+    
+    // 콘텐츠 타입 필드 추가 (movie 또는 tv)
+    @Builder.Default
+    @Column(name = "content_type")
+    private String contentType = "movie";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
