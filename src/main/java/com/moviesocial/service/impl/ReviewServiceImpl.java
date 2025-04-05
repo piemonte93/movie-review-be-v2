@@ -51,6 +51,20 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<ReviewResponse> getUserReviews(String username, int page, int size, String contentType) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        if (contentType == null || contentType.isEmpty()) {
+            contentType = "movie";
+        }
+        
+        return reviewRepository.findByUserAndContentType(user, contentType, PageRequest.of(page, size))
+                .map(this::convertToReviewResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<ReviewResponse> getReviewsByMovieId(Long movieId, int page, int size) {
         return reviewRepository.findByContentTypeAndMovieId("movie", movieId, PageRequest.of(page, size))
                 .map(this::convertToReviewResponse);

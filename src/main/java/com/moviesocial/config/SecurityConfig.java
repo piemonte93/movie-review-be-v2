@@ -81,6 +81,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/contents/**").permitAll()
                 .requestMatchers("/api/review/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/profile/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated()

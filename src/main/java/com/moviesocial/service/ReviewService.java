@@ -36,6 +36,16 @@ public interface ReviewService {
     Page<ReviewResponse> getUserReviews(String username, int page, int size);
     
     /**
+     * 사용자의 리뷰 목록을 콘텐츠 타입에 따라 가져옵니다.
+     * @param username 사용자명
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @param contentType 콘텐츠 타입 (movie 또는 tv)
+     * @return 사용자 리뷰 목록
+     */
+    Page<ReviewResponse> getUserReviews(String username, int page, int size, String contentType);
+    
+    /**
      * 영화에 대한 리뷰를 작성합니다.
      * @param username 사용자명
      * @param movieId 영화 ID

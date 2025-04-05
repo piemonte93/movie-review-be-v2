@@ -157,12 +157,12 @@ public class ScrapService {
             dto.put("first_air_date", scrap.getReleaseDate());
         } else {
             dto.put("title", scrap.getTitle());
+            dto.put("release_date", scrap.getReleaseDate());
         }
         
         dto.put("poster_path", scrap.getPosterPath());
         dto.put("vote_average", scrap.getVoteAverage());
         dto.put("vote_count", scrap.getVoteCount());
-        dto.put("release_date", scrap.getReleaseDate());
         dto.put("backdrop_path", scrap.getBackdropPath());
         dto.put("overview", scrap.getOverview());
         
