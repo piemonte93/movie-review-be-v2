@@ -144,4 +144,65 @@ public interface ReviewService {
      * @param username 사용자명
      */
     void dislikeReviewComment(Long reviewId, Long commentId, String username);
+    
+    /**
+     * TV 쇼에 대한 리뷰를 작성합니다.
+     * @param username 사용자명
+     * @param tvId TV 쇼 ID
+     * @param title 리뷰 제목
+     * @param content 리뷰 내용
+     * @param rating 평점
+     * @param isSpoiler 스포일러 여부
+     * @return 생성된 리뷰
+     */
+    ReviewResponse createTvReview(String username, Long tvId, String title, String content, Double rating, Boolean isSpoiler);
+    
+    /**
+     * TV 쇼 리뷰를 수정합니다.
+     * @param reviewId 리뷰 ID
+     * @param username 사용자명
+     * @param title 수정할 제목
+     * @param content 수정할 내용
+     * @param rating 수정할 평점
+     * @param isSpoiler 스포일러 여부
+     * @param tvId TV 쇼 ID (선택적)
+     * @param tvTitle TV 쇼 제목 (선택적)
+     * @param tvPoster TV 쇼 포스터 경로 (선택적)
+     * @return 수정된 리뷰
+     */
+    ReviewResponse updateTvReview(Long reviewId, String username, String title, String content, Double rating, Boolean isSpoiler,
+                               Long tvId, String tvTitle, String tvPoster);
+    
+    /**
+     * TV 쇼 리뷰를 삭제합니다.
+     * @param reviewId 리뷰 ID
+     * @param username 사용자명
+     */
+    void deleteTvReview(Long reviewId, String username);
+    
+    /**
+     * 모든 TV 쇼 리뷰 목록을 가져옵니다.
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return TV 쇼 리뷰 목록
+     */
+    Page<ReviewResponse> getAllTvReviews(int page, int size);
+    
+    /**
+     * 특정 TV 쇼의 리뷰 목록을 가져옵니다.
+     * @param tvId TV 쇼 ID
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return TV 쇼 리뷰 목록
+     */
+    Page<ReviewResponse> getReviewsByTvId(Long tvId, int page, int size);
+    
+    /**
+     * 사용자의 TV 쇼 리뷰 목록을 가져옵니다.
+     * @param username 사용자명
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return 사용자의 TV 쇼 리뷰 목록
+     */
+    Page<ReviewResponse> getUserTvReviews(String username, int page, int size);
 } 
