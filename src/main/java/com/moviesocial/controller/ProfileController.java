@@ -14,6 +14,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.moviesocial.repository.UserRepository;
+
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/profile")
@@ -28,10 +30,24 @@ public class ProfileController {
     
     @Autowired
     private JwtUtils jwtUtils;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @GetMapping("/{username}")
     public ResponseEntity<ProfileResponse> getUserProfile(@PathVariable String username) {
         ProfileResponse profile = profileService.getUserProfile(username);
+        return ResponseEntity.ok(profile);
+    }
+    
+    @GetMapping("/id/{id}")
+    public ResponseEntity<ProfileResponse> getUserProfileById(@PathVariable Long id) {
+        // ID로 사용자 조회
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + id));
+        
+        // 유저명으로 프로필 정보 조회
+        ProfileResponse profile = profileService.getUserProfile(user.getUsername());
         return ResponseEntity.ok(profile);
     }
 
