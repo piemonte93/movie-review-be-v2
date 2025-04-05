@@ -13,6 +13,22 @@ public interface ProfileService {
     ProfileResponse getUserProfile(String username);
     
     /**
+     * 사용자 프로필 정보를 가져옵니다. (팔로우 상태 포함)
+     * @param username 조회할 사용자명
+     * @param currentUsername 현재 로그인한 사용자명
+     * @return 사용자 프로필 정보
+     */
+    ProfileResponse getUserProfileWithFollowStatus(String username, String currentUsername);
+    
+    /**
+     * 사용자 프로필 정보를 ID로 가져옵니다. (팔로우 상태 포함)
+     * @param userId 조회할 사용자 ID
+     * @param currentUsername 현재 로그인한 사용자명
+     * @return 사용자 프로필 정보
+     */
+    ProfileResponse getUserProfileByIdWithFollowStatus(Long userId, String currentUsername);
+    
+    /**
      * 사용자 프로필 정보를 업데이트합니다.
      * @param username 사용자명
      * @param request 업데이트할 프로필 정보

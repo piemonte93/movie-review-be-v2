@@ -27,7 +27,7 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = "reviews")
+@ToString(exclude = {"reviews", "followers", "following"})
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class User {
     
@@ -86,6 +86,18 @@ public class User {
     @Builder.Default
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Review> reviews = new HashSet<>();
+    
+    // 팔로워 - 나를 팔로우하는 사용자들
+    @Builder.Default
+    @OneToMany(mappedBy = "following", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<UserFollow> followers = new HashSet<>();
+    
+    // 팔로잉 - 내가 팔로우하는 사용자들
+    @Builder.Default
+    @OneToMany(mappedBy = "follower", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<UserFollow> following = new HashSet<>();
 
     @Override
     public int hashCode() {
