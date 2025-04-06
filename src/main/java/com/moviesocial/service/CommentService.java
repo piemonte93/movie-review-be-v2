@@ -101,19 +101,8 @@ public class CommentService {
                     .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
             
             System.out.println("댓글 조회 성공 - commentId: " + commentId + ", 작성자 ID: " + comment.getUser().getId());
-
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
             
-            // 관리자나 중재자인지 확인
-            boolean isAdminOrModerator = user.getRoles().stream()
-                    .anyMatch(role -> 
-                        role.getName() == ERole.ROLE_ADMIN || 
-                        role.getName() == ERole.ROLE_MODERATOR
-                    );
-            
-            // 작성자이거나 관리자/중재자인 경우에만 삭제 허용
-            if (!comment.getUser().getId().equals(userId) && !isAdminOrModerator) {
+            if (!comment.getUser().getId().equals(userId)) {
                 System.out.println("권한 오류 - 요청 사용자 ID: " + userId + ", 댓글 작성자 ID: " + comment.getUser().getId());
                 throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
             }

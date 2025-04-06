@@ -73,11 +73,11 @@ public class User {
     // 차단 일자
     @Column(name = "block_date")
     private LocalDateTime blockDate;
-
+    
     // 신고 받은 횟수
     @Column(name = "reported_count")
     @Builder.Default
-    private Integer reportedCount = 0;
+    private int reportedCount = 0;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
@@ -103,11 +103,8 @@ public class User {
                 .anyMatch(role -> role.getName().name().equals(roleName));
     }
     
-    // 신고 횟수 증가 메소드
+    // 신고 횟수 증가 메서드
     public void incrementReportedCount() {
-        if (this.reportedCount == null) {
-            this.reportedCount = 0;
-        }
-        this.reportedCount += 1;
+        this.reportedCount++;
     }
 }
