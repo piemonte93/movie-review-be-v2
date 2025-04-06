@@ -9,6 +9,8 @@ import com.moviesocial.security.services.UserDetailsImpl;
 import com.moviesocial.service.CommentService;
 import com.moviesocial.service.PostService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +28,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/community")
 public class CommunityController {
+
+    private static final Logger logger = LoggerFactory.getLogger(CommunityController.class);
 
     @Autowired
     private PostService postService;
@@ -80,7 +84,7 @@ public class CommunityController {
     
     // 게시물 생성
     @PostMapping("/posts")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<PostResponse> createPost(
             @Valid @RequestBody PostRequest postRequest) {
         
@@ -91,13 +95,23 @@ public class CommunityController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
         }
         
+        // 명시적인 권한 체크 - USER 또는 ADMIN 권한이 있는지 확인
+        if (!userDetails.hasRole("USER") && !userDetails.hasRole("ADMIN")) {
+            logger.error("사용자({})가 필요한 권한이 없습니다. 권한: {}", 
+                currentUser.getUsername(), 
+                userDetails.getAuthorities());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "게시물 작성 권한이 없습니다.");
+        }
+        
+        logger.info("게시물 작성 시도 - 사용자: {}, 권한: {}", currentUser.getUsername(), userDetails.getAuthorities());
+        
         PostResponse post = postService.createPost(postRequest, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(post);
     }
     
     // 게시물 수정
     @PutMapping("/posts/{id}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<PostResponse> updatePost(
             @PathVariable Long id,
             @Valid @RequestBody PostRequest postRequest,
@@ -117,7 +131,7 @@ public class CommunityController {
     
     // 게시물 삭제
     @DeleteMapping("/posts/{id}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
@@ -136,7 +150,7 @@ public class CommunityController {
     
     // 게시물 좋아요
     @PostMapping("/posts/{id}/like")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<PostResponse> likePost(
             @PathVariable Long id) {
         
@@ -153,7 +167,7 @@ public class CommunityController {
     
     // 게시물 싫어요
     @PostMapping("/posts/{id}/dislike")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<PostResponse> dislikePost(
             @PathVariable Long id) {
         
@@ -218,7 +232,7 @@ public class CommunityController {
     
     // 댓글 생성
     @PostMapping("/posts/{postId}/comments")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<CommentResponse> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentRequest commentRequest) {
@@ -230,13 +244,23 @@ public class CommunityController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증된 사용자 정보를 찾을 수 없습니다.");
         }
         
+        // 명시적인 권한 체크 - USER 또는 ADMIN 권한이 있는지 확인
+        if (!userDetails.hasRole("USER") && !userDetails.hasRole("ADMIN")) {
+            logger.error("사용자({})가 필요한 권한이 없습니다. 권한: {}", 
+                currentUser.getUsername(), 
+                userDetails.getAuthorities());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "댓글 작성 권한이 없습니다.");
+        }
+        
+        logger.info("댓글 작성 시도 - 사용자: {}, 권한: {}", currentUser.getUsername(), userDetails.getAuthorities());
+        
         CommentResponse comment = commentService.createComment(postId, commentRequest, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(comment);
     }
     
     // 댓글 수정
     @PutMapping("/comments/{id}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<CommentResponse> updateComment(
             @PathVariable Long id,
             @Valid @RequestBody CommentRequest commentRequest,
@@ -256,7 +280,7 @@ public class CommunityController {
     
     // 댓글 삭제
     @DeleteMapping("/comments/{id}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<?> deleteComment(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
@@ -285,7 +309,7 @@ public class CommunityController {
     
     // 댓글 좋아요
     @PostMapping("/comments/{id}/like")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<CommentResponse> likeComment(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
@@ -304,7 +328,7 @@ public class CommunityController {
     
     // 댓글 싫어요
     @PostMapping("/comments/{id}/dislike")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
     public ResponseEntity<CommentResponse> dislikeComment(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {

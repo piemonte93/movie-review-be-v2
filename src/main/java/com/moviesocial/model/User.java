@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -26,9 +27,17 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = "reviews")
+@ToString(exclude = {"reviews", "followers", "following"})
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class User {
+    
+    // 사용자 상태 열거형
+    public enum UserStatus {
+        ACTIVE,
+        BLOCKED,
+        DELETED
+    }
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,6 +60,19 @@ public class User {
 
     @Builder.Default
     private boolean socialLogin = false;  // 소셜 로그인 여부, 기본값은 false (일반 회원)
+    
+    // 사용자 상태 필드 추가
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private UserStatus status = UserStatus.ACTIVE;
+    
+    // 차단 이유
+    @Column(name = "block_reason")
+    private String blockReason;
+    
+    // 차단 일자
+    @Column(name = "block_date")
+    private LocalDateTime blockDate;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
@@ -64,9 +86,27 @@ public class User {
     @Builder.Default
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Review> reviews = new HashSet<>();
+    
+    // 팔로워 - 나를 팔로우하는 사용자들
+    @Builder.Default
+    @OneToMany(mappedBy = "following", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<UserFollow> followers = new HashSet<>();
+    
+    // 팔로잉 - 내가 팔로우하는 사용자들
+    @Builder.Default
+    @OneToMany(mappedBy = "follower", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private Set<UserFollow> following = new HashSet<>();
 
     @Override
     public int hashCode() {
         return Objects.hash(id, username, email);
+    }
+
+    // Role 확인 편의 메서드 추가
+    public boolean hasRole(String roleName) {
+        return this.roles.stream()
+                .anyMatch(role -> role.getName().name().equals(roleName));
     }
 }

@@ -37,6 +37,7 @@ import com.moviesocial.service.EmailService;
 import com.moviesocial.payload.response.CheckAvailabilityResponse;
 import com.moviesocial.payload.request.EmailVerificationRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -526,9 +527,9 @@ public class AuthController {
         }
     }
 
-    // 이메일 중복 체크 API
-    @GetMapping("/check-email")
-    public ResponseEntity<?> checkEmailAvailability(@RequestParam String email) {
+    // 이메일 중복 체크 API - 새 엔드포인트
+    @GetMapping("/public/check-email")
+    public ResponseEntity<?> publicCheckEmailAvailability(@RequestParam String email) {
         Boolean isAvailable = !userRepository.existsByEmail(email);
         return ResponseEntity.ok(new CheckAvailabilityResponse(isAvailable));
     }

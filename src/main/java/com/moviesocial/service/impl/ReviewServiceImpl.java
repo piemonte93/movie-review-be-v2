@@ -485,9 +485,9 @@ public class ReviewServiceImpl implements ReviewService {
     private ReviewCommentResponse convertToCommentResponse(ReviewComment comment) {
         // UserResponse 생성
         UserResponse userResponse = new UserResponse();
-        userResponse.setUserId(comment.getUser().getId());
+        userResponse.setId(comment.getUser().getId());
         userResponse.setUsername(comment.getUser().getUsername());
-        userResponse.setProfileUrl(comment.getUser().getProfileImageUrl());
+        userResponse.setProfileImageUrl(comment.getUser().getProfileImageUrl());
         
         // 댓글 응답 설정
         ReviewCommentResponse response = ReviewCommentResponse.builder()

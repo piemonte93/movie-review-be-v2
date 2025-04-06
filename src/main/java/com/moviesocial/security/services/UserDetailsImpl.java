@@ -76,6 +76,11 @@ public class UserDetailsImpl implements UserDetails {
         return user;
     }
 
+    public boolean hasRole(String roleName) {
+        return authorities.stream()
+                .anyMatch(auth -> auth.getAuthority().equals("ROLE_" + roleName));
+    }
+
     @Override
     public boolean isAccountNonExpired() {
         return true;

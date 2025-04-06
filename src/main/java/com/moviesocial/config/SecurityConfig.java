@@ -59,10 +59,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -76,17 +76,19 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Public endpoints (no authentication required)
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/reviews/**").permitAll()
+                .requestMatchers("/api/tvreviews/**").permitAll()
                 .requestMatchers("/api/contents/**").permitAll()
-                .requestMatchers("/api/review/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/profile/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated()
-                .requestMatchers("/api/scraps/**").authenticated()
-                .anyRequest().authenticated()
+                .requestMatchers("/api/community/posts").permitAll() // 게시글 목록 조회 허용
+                .requestMatchers(HttpMethod.GET, "/api/community/posts/**").permitAll() // 게시글 상세 및 댓글 조회 허용
+                // Endpoints requiring authentication
+                .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated() // POST 요청 인증 필요
+                .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated() // PUT 요청 인증 필요
+                .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated() // DELETE 요청 인증 필요
+                // Default for all other endpoints
+                .anyRequest().permitAll()
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
