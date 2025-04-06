@@ -69,7 +69,7 @@ public class ReviewController {
      * @return 수정된 리뷰
      */
     @PutMapping("/reviews/{reviewId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<ReviewResponse> updateReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId,
@@ -94,7 +94,7 @@ public class ReviewController {
      * @return 성공 메시지
      */
     @DeleteMapping("/reviews/{reviewId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<Void> deleteReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId) {
@@ -213,7 +213,7 @@ public class ReviewController {
      * @return 성공 메시지
      */
     @DeleteMapping("/reviews/{reviewId}/comments/{commentId}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<Void> deleteReviewComment(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId,

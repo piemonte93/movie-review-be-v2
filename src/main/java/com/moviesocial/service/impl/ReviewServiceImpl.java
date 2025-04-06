@@ -3,6 +3,7 @@ package com.moviesocial.service.impl;
 import com.moviesocial.model.Review;
 import com.moviesocial.model.ReviewComment;
 import com.moviesocial.model.User;
+import com.moviesocial.model.ERole;
 import com.moviesocial.model.tmdb.ContentDetail;
 import com.moviesocial.payload.response.ReviewResponse;
 import com.moviesocial.payload.response.ReviewCommentResponse;
@@ -115,7 +116,15 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 수정 허용
+        if (!review.getUser().getId().equals(user.getId()) && !isAdminOrModerator) {
             throw new RuntimeException("이 리뷰를 수정할 권한이 없습니다.");
         }
 
@@ -162,11 +171,29 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
+        if (review.getContentType() != null && !review.getContentType().equals("movie")) {
+            throw new RuntimeException("이 리뷰는 영화 리뷰가 아닙니다.");
+        }
+        
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 삭제 허용
+        if (!review.getUser().getId().equals(user.getId()) && !isAdminOrModerator) {
             throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
         }
         
+        System.out.println("리뷰 삭제 - reviewId: " + reviewId + ", 삭제자: " + username + 
+                          ", 작성자: " + review.getUser().getUsername() + 
+                          ", 관리자 권한: " + isAdminOrModerator);
+        
+        // 리뷰 삭제
         reviewRepository.delete(review);
+        System.out.println("리뷰 삭제 완료");
     }
     
     @Override
@@ -241,56 +268,37 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public void deleteReviewComment(Long reviewId, Long commentId, String username) {
-        System.out.println("댓글 삭제 요청 시작 - reviewId: " + reviewId + ", commentId: " + commentId + ", username: " + username);
-        
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-        System.out.println("사용자 확인 완료 - userId: " + user.getId());
-
+        
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
+        
         ReviewComment comment = reviewCommentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
-        System.out.println("댓글 조회 완료 - commentId: " + comment.getId());
-
+        
         if (!comment.getReview().getId().equals(reviewId)) {
-            throw new RuntimeException("잘못된 리뷰의 댓글입니다.");
+            throw new RuntimeException("해당 리뷰에 속한 댓글이 아닙니다.");
         }
-
-        if (!comment.getUser().getId().equals(user.getId())) {
+        
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 삭제 허용
+        if (!comment.getUser().getId().equals(user.getId()) && !isAdminOrModerator) {
             throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
         }
-        System.out.println("댓글 삭제 권한 확인 완료");
-
-        // 먼저 댓글 수 업데이트
-        Review review = comment.getReview();
-        int newCommentCount = Math.max(0, review.getCommentCount() - 1);
-        System.out.println("리뷰 댓글 수 업데이트 - 이전: " + review.getCommentCount() + ", 이후: " + newCommentCount);
-        review.setCommentCount(newCommentCount);
         
-        // 리뷰 저장 및 즉시 반영
-        reviewRepository.saveAndFlush(review);
-        System.out.println("리뷰 댓글 수 업데이트 저장 완료");
+        // 댓글 삭제
+        reviewCommentRepository.delete(comment);
         
-        // 명시적인 SQL 쿼리로 댓글 삭제
-        try {
-            // 네이티브 SQL 쿼리 사용
-            String deleteQuery = "DELETE FROM review_comments WHERE id = :commentId";
-            int updatedRows = entityManager.createNativeQuery(deleteQuery)
-                .setParameter("commentId", commentId)
-                .executeUpdate();
-                
-            System.out.println("댓글 삭제 완료 (직접 SQL 실행) - commentId: " + commentId + ", 영향받은 행: " + updatedRows);
-            
-            // 영향받은 행이 없으면 오류 발생
-            if (updatedRows == 0) {
-                throw new RuntimeException("댓글 삭제에 실패했습니다. 이미 삭제되었거나 존재하지 않는 댓글입니다.");
-            }
-        } catch (Exception e) {
-            System.err.println("댓글 삭제 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("댓글 삭제 중 오류가 발생했습니다: " + e.getMessage());
-        }
-        
-        System.out.println("댓글 삭제 프로세스 완료");
+        // 리뷰의 댓글 수 감소
+        review.setCommentCount(review.getCommentCount() - 1);
+        reviewRepository.save(review);
     }
 
     @Override
@@ -370,7 +378,15 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 수정 허용
+        if (!review.getUser().getId().equals(user.getId()) && !isAdminOrModerator) {
             throw new RuntimeException("이 리뷰를 수정할 권한이 없습니다.");
         }
         
@@ -425,12 +441,20 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
-        }
-        
         if (!review.getContentType().equals("tv")) {
             throw new RuntimeException("이 리뷰는 TV 쇼 리뷰가 아닙니다.");
+        }
+        
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 삭제 허용
+        if (!review.getUser().getId().equals(user.getId()) && !isAdminOrModerator) {
+            throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
         }
         
         reviewRepository.delete(review);

@@ -65,7 +65,7 @@ public class TvShowReviewController {
      * @return 수정된 리뷰
      */
     @PutMapping("/tvreviews/{reviewId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<ReviewResponse> updateTvReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId,
@@ -90,7 +90,7 @@ public class TvShowReviewController {
      * @return 성공 메시지
      */
     @DeleteMapping("/tvreviews/{reviewId}")
-    @PreAuthorize("hasRole('USER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<Void> deleteTvReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId) {

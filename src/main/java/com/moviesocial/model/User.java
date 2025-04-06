@@ -74,6 +74,11 @@ public class User {
     @Column(name = "block_date")
     private LocalDateTime blockDate;
 
+    // 신고 받은 횟수
+    @Column(name = "reported_count")
+    @Builder.Default
+    private Integer reportedCount = 0;
+
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -96,5 +101,13 @@ public class User {
     public boolean hasRole(String roleName) {
         return this.roles.stream()
                 .anyMatch(role -> role.getName().name().equals(roleName));
+    }
+    
+    // 신고 횟수 증가 메소드
+    public void incrementReportedCount() {
+        if (this.reportedCount == null) {
+            this.reportedCount = 0;
+        }
+        this.reportedCount += 1;
     }
 }

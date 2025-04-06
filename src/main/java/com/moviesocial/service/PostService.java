@@ -143,7 +143,18 @@ public class PostService {
         Post post = postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("게시물을 찾을 수 없습니다. ID: " + id));
         
-        if (!post.getUser().getId().equals(userId)) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
+        
+        // 관리자나 중재자인지 확인
+        boolean isAdminOrModerator = user.getRoles().stream()
+                .anyMatch(role -> 
+                    role.getName() == ERole.ROLE_ADMIN || 
+                    role.getName() == ERole.ROLE_MODERATOR
+                );
+        
+        // 작성자이거나 관리자/중재자인 경우에만 삭제 허용
+        if (!post.getUser().getId().equals(userId) && !isAdminOrModerator) {
             throw new RuntimeException("이 게시물을 삭제할 권한이 없습니다.");
         }
         
