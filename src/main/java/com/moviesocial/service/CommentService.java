@@ -1,6 +1,7 @@
 package com.moviesocial.service;
 
 import com.moviesocial.model.*;
+import com.moviesocial.model.ERole;
 import com.moviesocial.payload.request.CommentRequest;
 import com.moviesocial.payload.response.CommentResponse;
 import com.moviesocial.repository.*;
@@ -102,7 +103,14 @@ public class CommentService {
             
             System.out.println("댓글 조회 성공 - commentId: " + commentId + ", 작성자 ID: " + comment.getUser().getId());
             
-            if (!comment.getUser().getId().equals(userId)) {
+            // 자신의 댓글이거나 관리자/모더레이터인 경우 삭제 가능
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다. ID: " + userId));
+            
+            boolean isAdminOrModerator = user.getRoles().stream()
+                    .anyMatch(role -> role.getName() == ERole.ROLE_ADMIN || role.getName() == ERole.ROLE_MODERATOR);
+            
+            if (!comment.getUser().getId().equals(userId) && !isAdminOrModerator) {
                 System.out.println("권한 오류 - 요청 사용자 ID: " + userId + ", 댓글 작성자 ID: " + comment.getUser().getId());
                 throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
             }
