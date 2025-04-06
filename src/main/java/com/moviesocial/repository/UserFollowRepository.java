@@ -2,6 +2,7 @@ package com.moviesocial.repository;
 
 import com.moviesocial.model.User;
 import com.moviesocial.model.UserFollow;
+import com.moviesocial.model.UserFollowId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface UserFollowRepository extends JpaRepository<UserFollow, Long> {
+public interface UserFollowRepository extends JpaRepository<UserFollow, UserFollowId> {
 
     /**
      * 특정 사용자의 팔로워 목록 조회
@@ -26,19 +27,23 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, Long> {
     List<User> findFollowingByUserId(@Param("userId") Long userId);
 
     /**
-     * 특정 사용자의 팔로워 수 조회
+     * 특정 사용자의 팔로워 수 조회 - 네이티브 쿼리 사용
      */
-    long countByFollowingId(Long userId);
+    @Query(value = "SELECT COUNT(*) FROM user_following WHERE following_id = :userId", nativeQuery = true)
+    long countByFollowingId(@Param("userId") Long userId);
 
     /**
-     * 특정 사용자가 팔로우하는 사용자 수 조회
+     * 특정 사용자가 팔로우하는 사용자 수 조회 - 네이티브 쿼리 사용
      */
-    long countByFollowerId(Long userId);
+    @Query(value = "SELECT COUNT(*) FROM user_following WHERE follower_id = :userId", nativeQuery = true)
+    long countByFollowerId(@Param("userId") Long userId);
 
     /**
      * 두 사용자 간의 팔로우 관계 조회
      */
-    Optional<UserFollow> findByFollowerIdAndFollowingId(Long followerId, Long followingId);
+    default Optional<UserFollow> findByFollowerIdAndFollowingId(Long followerId, Long followingId) {
+        return findById(new UserFollowId(followerId, followingId));
+    }
 
     /**
      * 특정 사용자의 팔로우 상태와 함께 팔로워 목록 조회

@@ -2,6 +2,7 @@ package com.moviesocial.service.impl;
 
 import com.moviesocial.model.User;
 import com.moviesocial.model.UserFollow;
+import com.moviesocial.model.UserFollowId;
 import com.moviesocial.payload.response.FollowUserResponse;
 import com.moviesocial.payload.response.UserFollowResponse;
 import com.moviesocial.repository.UserFollowRepository;
@@ -9,6 +10,7 @@ import com.moviesocial.repository.UserRepository;
 import com.moviesocial.service.UserFollowService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,15 +56,29 @@ public class UserFollowServiceImpl implements UserFollowService {
 
         if (existingFollow.isPresent()) {
             // 이미 팔로우 중이면 언팔로우
-            log.info("기존 팔로우 관계 삭제: {}", existingFollow.get().getId());
-            userFollowRepository.delete(existingFollow.get());
-            isNowFollowing = false;
+            try {
+                log.info("기존 팔로우 관계 삭제");
+                userFollowRepository.delete(existingFollow.get());
+                isNowFollowing = false;
+            } catch (Exception e) {
+                log.error("팔로우 삭제 중 오류 발생: {}", e.getMessage());
+                throw new RuntimeException("팔로우 삭제 중 오류가 발생했습니다.", e);
+            }
         } else {
             // 팔로우 관계 생성
-            UserFollow newFollow = new UserFollow(currentUser, targetUser);
-            log.info("새 팔로우 관계 생성");
-            userFollowRepository.save(newFollow);
-            isNowFollowing = true;
+            try {
+                UserFollow newFollow = new UserFollow(currentUser, targetUser);
+                log.info("새 팔로우 관계 생성");
+                userFollowRepository.save(newFollow);
+                isNowFollowing = true;
+            } catch (DataIntegrityViolationException e) {
+                // 이미 팔로우 중인 경우 (동시성 문제로 인한 중복 요청)
+                log.info("이미 팔로우 중인 관계입니다. 기존 팔로우 관계 유지");
+                isNowFollowing = true;
+            } catch (Exception e) {
+                log.error("팔로우 생성 중 오류 발생: {}", e.getMessage());
+                throw new RuntimeException("팔로우 생성 중 오류가 발생했습니다.", e);
+            }
         }
 
         // 최신 팔로워/팔로잉 수 조회
