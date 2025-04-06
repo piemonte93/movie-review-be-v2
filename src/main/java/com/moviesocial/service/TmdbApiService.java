@@ -192,31 +192,48 @@ public class TmdbApiService {
         return imageUrl + size + path;
     }
 
-    // TV 프로그램 상세 정보를 가져오는 메서드
+    /**
+     * TV 프로그램 상세 정보를 가져오는 메서드
+     * @param tvId TV 프로그램 ID
+     * @return TV 프로그램 상세 정보
+     */
     public ContentDetail getTvDetails(Long tvId) {
+        try {
         String url = UriComponentsBuilder
                 .fromHttpUrl(baseUrl + "/tv/" + tvId)
                 .queryParam("api_key", apiKey)
                 .queryParam("language", "ko-KR")
+                    .queryParam("append_to_response", "credits,videos,reviews")
                 .build()
                 .toUriString();
 
-        ContentDetail contentDetail = restTemplate.getForObject(url, ContentDetail.class);
-        
-        // 출연진과 제작진 정보 가져오기
-        if (contentDetail != null) {
-            ContentDetail creditsInfo = getTvCredits(tvId);
-            if (creditsInfo != null) {
-                contentDetail.setCast(creditsInfo.getCast());
-                contentDetail.setCrew(creditsInfo.getCrew());
+            log.info("TV 프로그램 상세 정보 요청 URL: {}", url);
+            ContentDetail contentDetail = restTemplate.getForObject(url, ContentDetail.class);
+            
+            if (contentDetail == null) {
+                throw new RuntimeException("TV 프로그램 정보를 찾을 수 없습니다.");
             }
+
+            // TV 프로그램의 경우 name을 title로 매핑
+            if (contentDetail.getName() != null && contentDetail.getTitle() == null) {
+                contentDetail.setTitle(contentDetail.getName());
+            }
+
+            log.info("TV 프로그램 상세 정보 조회 성공. tvId: {}, title: {}", tvId, contentDetail.getTitle());
+            return contentDetail;
+        } catch (Exception e) {
+            log.error("TV 프로그램 상세 정보 조회 실패. tvId: " + tvId, e);
+            throw new RuntimeException("TV 프로그램 정보를 가져오는데 실패했습니다.", e);
         }
-        
-        return contentDetail;
     }
 
-    // TV 프로그램 비디오 목록을 가져오는 메서드
+    /**
+     * TV 프로그램 비디오 목록을 가져오는 메서드
+     * @param tvId TV 프로그램 ID
+     * @return TV 프로그램 비디오 목록
+     */
     public VideoResponse getTvVideos(Long tvId) {
+        try {
         String url = UriComponentsBuilder
                 .fromHttpUrl(baseUrl + "/tv/" + tvId + "/videos")
                 .queryParam("api_key", apiKey)
@@ -224,33 +241,27 @@ public class TmdbApiService {
                 .build()
                 .toUriString();
 
+            log.info("TV 프로그램 비디오 요청 URL: {}", url);
         VideoResponse response = restTemplate.getForObject(url, VideoResponse.class);
 
-        // 한국어 비디오가 없거나 부족한 경우 영어 비디오도 가져옴
-        if (response != null && (response.getResults() == null || response.getResults().size() < 2)) {
-            String urlEn = UriComponentsBuilder
-                    .fromHttpUrl(baseUrl + "/tv/" + tvId + "/videos")
-                    .queryParam("api_key", apiKey)
-                    .queryParam("language", "en-US")  // 영어 비디오
-                    .build()
-                    .toUriString();
-
-            VideoResponse enResponse = restTemplate.getForObject(urlEn, VideoResponse.class);
-            if (enResponse != null && enResponse.getResults() != null && !enResponse.getResults().isEmpty()) {
-                // 영어 비디오가 있으면 한국어 비디오 목록에 추가
-                if (response.getResults() == null) {
-                    response.setResults(enResponse.getResults());
-                } else {
-                    response.getResults().addAll(enResponse.getResults());
-                }
+            if (response == null) {
+                return new VideoResponse(tvId, new ArrayList<>());
             }
-        }
 
-        return response;
+            return response;
+        } catch (Exception e) {
+            log.error("TV 프로그램 비디오 조회 실패. tvId: " + tvId, e);
+            return new VideoResponse(tvId, new ArrayList<>());
+        }
     }
 
-    // TV 프로그램 리뷰 목록을 가져오는 메서드
+    /**
+     * TV 프로그램 리뷰 목록을 가져오는 메서드
+     * @param tvId TV 프로그램 ID
+     * @return TV 프로그램 리뷰 목록
+     */
     public ReviewResponse getTvReviews(Long tvId) {
+        try {
         String url = UriComponentsBuilder
                 .fromHttpUrl(baseUrl + "/tv/" + tvId + "/reviews")
                 .queryParam("api_key", apiKey)
@@ -258,21 +269,107 @@ public class TmdbApiService {
                 .build()
                 .toUriString();
 
+            log.info("TV 프로그램 리뷰 요청 URL: {}", url);
         ReviewResponse response = restTemplate.getForObject(url, ReviewResponse.class);
 
-        // 한국어 리뷰가 없는 경우 영어 리뷰도 가져옴
-        if (response != null && (response.getResults() == null || response.getResults().isEmpty())) {
-            String urlEn = UriComponentsBuilder
-                    .fromHttpUrl(baseUrl + "/tv/" + tvId + "/reviews")
+            if (response == null) {
+                return new ReviewResponse(tvId, 1, new ArrayList<>(), 0, 0);
+            }
+
+            return response;
+        } catch (Exception e) {
+            log.error("TV 프로그램 리뷰 조회 실패. tvId: " + tvId, e);
+            return new ReviewResponse(tvId, 1, new ArrayList<>(), 0, 0);
+        }
+    }
+
+    /**
+     * TV 프로그램 출연진/제작진 정보를 가져오는 메서드
+     * @param tvId TV 프로그램 ID
+     * @return TV 프로그램 출연진/제작진 정보
+     */
+    public ContentDetail getTvCredits(Long tvId) {
+        try {
+            String url = UriComponentsBuilder
+                    .fromHttpUrl(baseUrl + "/tv/" + tvId + "/credits")
                     .queryParam("api_key", apiKey)
-                    .queryParam("language", "en-US")  // 영어 리뷰
+                    .queryParam("language", "ko-KR")
                     .build()
                     .toUriString();
 
-            return restTemplate.getForObject(urlEn, ReviewResponse.class);
+            log.info("TV 프로그램 출연진/제작진 요청 URL: {}", url);
+            return restTemplate.getForObject(url, ContentDetail.class);
+        } catch (Exception e) {
+            log.error("TV 프로그램 출연진/제작진 조회 실패. tvId: " + tvId, e);
+            return new ContentDetail();
         }
+    }
 
-        return response;
+    /**
+     * TV 프로그램 필터링 및 발견 메서드
+     * @param genres 장르 ID 목록
+     * @param year 년도
+     * @param sortBy 정렬 기준
+     * @param page 페이지 번호
+     * @param query 검색어
+     * @param voteAvgMin 최소 평점
+     * @param voteAvgMax 최대 평점
+     * @param isKorean 한국 TV 프로그램 필터
+     * @param isForeign 해외 TV 프로그램 필터
+     * @param network 방송사
+     * @return 필터링된 TV 프로그램 목록
+     */
+    public ContentResponse discoverTvShows(String genres, Integer year, String sortBy, int page,
+                                         String query, Double voteAvgMin, Double voteAvgMax,
+                                         Boolean isKorean, Boolean isForeign, String network) {
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromHttpUrl(baseUrl + "/discover/tv")
+                    .queryParam("api_key", apiKey)
+                    .queryParam("language", "ko-KR")
+                    .queryParam("sort_by", sortBy)
+                    .queryParam("page", page);
+
+            if (genres != null && !genres.isEmpty()) {
+                builder.queryParam("with_genres", genres);
+            }
+
+            if (year != null) {
+                builder.queryParam("first_air_date_year", year);
+            }
+
+            if (query != null && !query.isEmpty()) {
+                builder.queryParam("with_text_query", query);
+            }
+
+            if (voteAvgMin != null) {
+                builder.queryParam("vote_average.gte", voteAvgMin);
+            }
+
+            if (voteAvgMax != null) {
+                builder.queryParam("vote_average.lte", voteAvgMax);
+            }
+
+            if (isKorean != null && isKorean) {
+                builder.queryParam("with_original_language", "ko");
+            }
+
+            if (isForeign != null && isForeign) {
+                builder.queryParam("without_original_language", "ko");
+            }
+
+            if (network != null && !network.isEmpty()) {
+                builder.queryParam("with_networks", network);
+            }
+
+            String url = builder.build().toUriString();
+            log.info("TV 프로그램 필터링 요청 URL: {}", url);
+
+            return restTemplate.getForObject(url, ContentResponse.class);
+        } catch (Exception e) {
+            log.error("TV 프로그램 필터링 실패", e);
+            return new ContentResponse();
+        }
     }
 
     /**
@@ -625,222 +722,5 @@ public class TmdbApiService {
                 .toUriString();
 
         return restTemplate.getForObject(url, ContentDetail.class);
-    }
-
-    // TV 프로그램 출연진/제작진 정보를 가져오는 메서드
-    public ContentDetail getTvCredits(Long tvId) {
-        String url = UriComponentsBuilder
-                .fromHttpUrl(baseUrl + "/tv/" + tvId + "/credits")
-                .queryParam("api_key", apiKey)
-                .queryParam("language", "ko-KR")
-                .build()
-                .toUriString();
-
-        return restTemplate.getForObject(url, ContentDetail.class);
-    }
-
-    /**
-     * TV 프로그램 필터링 및 발견 메서드
-     * @param genres 장르 ID 목록 (콤마로 구분된 문자열)
-     * @param year 년도
-     * @param sortBy 정렬 기준
-     * @param page 페이지 번호
-     * @param query 검색어
-     * @param voteAvgMin 최소 평점
-     * @param voteAvgMax 최대 평점
-     * @param isKorean 한국 TV 프로그램 필터
-     * @param isForeign 해외 TV 프로그램 필터
-     * @param network 방송사
-     * @return 필터링된 TV 프로그램 목록
-     */
-    public ContentResponse discoverTvShows(String genres, Integer year, String sortBy, int page, String query,
-                                         Double voteAvgMin, Double voteAvgMax, Boolean isKorean, Boolean isForeign,
-                                         String network) {
-        // 검색어가 있으면 필터링된 검색 API를, 없으면 일반 discover API 사용
-        if (query != null && !query.isEmpty()) {
-            return searchTvShowsWithFilters(query, page, genres, year, voteAvgMin, isKorean, isForeign, network);
-        }
-
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(baseUrl + "/discover/tv")
-                .queryParam("api_key", apiKey)
-                .queryParam("language", "ko-KR")
-                .queryParam("sort_by", sortBy)
-                .queryParam("page", page);
-
-        // 국내TV 프로그램 필터링 - 한국TV 프로그램만 보기
-        if (Boolean.TRUE.equals(isKorean)) {
-            builder.queryParam("with_original_language", "ko");
-        }
-
-        // 해외TV 프로그램 필터링 - 한국TV 프로그램 제외하기
-        if (Boolean.TRUE.equals(isForeign)) {
-            builder.queryParam("without_original_language", "ko");
-        }
-
-        // 선택적 파라미터 추가
-        if (genres != null && !genres.isEmpty()) {
-            builder.queryParam("with_genres", genres);
-        }
-
-        if (year != null) {
-            builder.queryParam("first_air_date_year", year);
-        }
-
-        // 평점 필터 추가
-        if (voteAvgMin != null) {
-            builder.queryParam("vote_average.gte", voteAvgMin);
-        }
-
-        if (voteAvgMax != null) {
-            builder.queryParam("vote_average.lte", voteAvgMax);
-        }
-
-        // 방송사 필터 추가
-        if (network != null && !network.isEmpty()) {
-            builder.queryParam("with_networks", network);
-        }
-
-        String url = builder.build().toUriString();
-        return restTemplate.getForObject(url, ContentResponse.class);
-    }
-
-    /**
-     * TV 프로그램 필터링된 검색 메서드
-     * @param query 검색어
-     * @param page 페이지 번호
-     * @param genres 장르 ID 목록
-     * @param year 년도
-     * @param voteAvgMin 최소 평점
-     * @param isKorean 한국 TV 프로그램 필터
-     * @param isForeign 해외 TV 프로그램 필터
-     * @param network 방송사
-     * @return 필터링된 검색 결과
-     */
-    public ContentResponse searchTvShowsWithFilters(String query, int page, String genres,
-                                                  Integer year, Double voteAvgMin,
-                                                  Boolean isKorean, Boolean isForeign,
-                                                  String network) {
-        // 기본 검색 URL 구성
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(baseUrl + "/search/tv")
-                .queryParam("api_key", apiKey)
-                .queryParam("language", "ko-KR")
-                .queryParam("query", query)
-                .queryParam("page", 1)
-                .queryParam("include_adult", false);
-
-        // 필터 적용
-        if (year != null) {
-            builder.queryParam("first_air_date_year", year);
-        }
-
-        if (Boolean.TRUE.equals(isKorean)) {
-            builder.queryParam("with_original_language", "ko");
-        }
-
-        String url = builder.build().toUriString();
-        ContentResponse response = restTemplate.getForObject(url, ContentResponse.class);
-
-        // 결과가 없으면 빈 응답 반환
-        if (response == null || response.getResults() == null || response.getResults().isEmpty()) {
-            return response;
-        }
-
-        // 장르 필터링과 추가 필터링 적용
-        List<ContentResponse.ContentItem> filteredResults = new ArrayList<>(response.getResults());
-
-        // 외국 TV 프로그램 필터 처리
-        if (Boolean.TRUE.equals(isForeign)) {
-            filteredResults = filteredResults.stream()
-                    .filter(item -> !"ko".equals(item.getOriginal_language()))
-                    .collect(Collectors.toList());
-        }
-
-        // 장르 필터링
-        if (genres != null && !genres.isEmpty()) {
-            List<Integer> genreList = Arrays.stream(genres.split(","))
-                    .map(Integer::parseInt)
-                    .collect(Collectors.toList());
-
-            filteredResults = filteredResults.stream()
-                    .filter(item -> {
-                        if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
-                            return false;
-                        }
-                        return item.getGenre_ids().stream().anyMatch(genreList::contains);
-                    })
-                    .collect(Collectors.toList());
-        }
-
-        // 검색어로 여러 페이지의 결과를 가져와 필터링 후 페이징 처리
-        if (filteredResults.size() < 20 && response.getTotal_pages() > 1) {
-            int maxPages = Math.min(3, response.getTotal_pages());
-
-            for (int i = 2; i <= maxPages; i++) {
-                String nextPageUrl = UriComponentsBuilder
-                        .fromHttpUrl(baseUrl + "/search/tv")
-                        .queryParam("api_key", apiKey)
-                        .queryParam("language", "ko-KR")
-                        .queryParam("query", query)
-                        .queryParam("page", i)
-                        .queryParam("include_adult", false)
-                        .build()
-                        .toUriString();
-
-                ContentResponse nextPageResponse = restTemplate.getForObject(nextPageUrl, ContentResponse.class);
-
-                if (nextPageResponse != null && nextPageResponse.getResults() != null &&
-                        !nextPageResponse.getResults().isEmpty()) {
-
-                    List<ContentResponse.ContentItem> nextPageFiltered = new ArrayList<>(nextPageResponse.getResults());
-
-                    // 외국 TV 프로그램 필터 적용
-                    if (Boolean.TRUE.equals(isForeign)) {
-                        nextPageFiltered = nextPageFiltered.stream()
-                                .filter(item -> !"ko".equals(item.getOriginal_language()))
-                                .collect(Collectors.toList());
-                    }
-
-                    // 장르 필터 적용
-                    if (genres != null && !genres.isEmpty()) {
-                        List<Integer> genreList = Arrays.stream(genres.split(","))
-                                .map(Integer::parseInt)
-                                .collect(Collectors.toList());
-
-                        nextPageFiltered = nextPageFiltered.stream()
-                                .filter(item -> {
-                                    if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
-                                        return false;
-                                    }
-                                    return item.getGenre_ids().stream().anyMatch(genreList::contains);
-                                })
-                                .collect(Collectors.toList());
-                    }
-
-                    filteredResults.addAll(nextPageFiltered);
-                }
-            }
-        }
-
-        // 필터링된 결과에 대해 페이징 처리
-        int startIndex = (page - 1) * 20;
-        List<ContentResponse.ContentItem> pagedResults;
-
-        if (startIndex < filteredResults.size()) {
-            int endIndex = Math.min(startIndex + 20, filteredResults.size());
-            pagedResults = filteredResults.subList(startIndex, endIndex);
-        } else {
-            pagedResults = Collections.emptyList();
-        }
-
-        // 새 응답 생성
-        ContentResponse filteredResponse = new ContentResponse();
-        filteredResponse.setPage(page);
-        filteredResponse.setResults(pagedResults);
-        filteredResponse.setTotal_pages((int) Math.ceil(filteredResults.size() / 20.0));
-        filteredResponse.setTotal_results(filteredResults.size());
-
-        return filteredResponse;
     }
 }
