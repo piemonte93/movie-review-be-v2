@@ -2,14 +2,17 @@ package com.moviesocial.service.impl;
 
 import com.moviesocial.model.Role;
 import com.moviesocial.model.User;
+import com.moviesocial.model.UserFollow;
 import com.moviesocial.payload.request.ProfileUpdateRequest;
 import com.moviesocial.payload.response.ProfileResponse;
+import com.moviesocial.repository.UserFollowRepository;
 import com.moviesocial.repository.UserRepository;
 import com.moviesocial.service.ProfileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -18,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,6 +32,9 @@ public class ProfileServiceImpl implements ProfileService {
     @Autowired
     private UserRepository userRepository;
     
+    @Autowired
+    private UserFollowRepository userFollowRepository;
+    
     @Value("${app.upload.dir:${user.home}/uploads}")
     private String uploadDir;
     
@@ -35,6 +42,7 @@ public class ProfileServiceImpl implements ProfileService {
     private String frontendUrl;
 
     @Override
+    @Transactional(readOnly = true)
     public ProfileResponse getUserProfile(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + username));
@@ -42,6 +50,10 @@ public class ProfileServiceImpl implements ProfileService {
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getName().name())
                 .collect(Collectors.toList());
+        
+        // 팔로워, 팔로잉 수 조회
+        long followerCount = userFollowRepository.countByFollowingId(user.getId());
+        long followingCount = userFollowRepository.countByFollowerId(user.getId());
         
         return ProfileResponse.builder()
                 .id(user.getId())
@@ -51,6 +63,82 @@ public class ProfileServiceImpl implements ProfileService {
                 .bio(user.getBio())
                 .reviewCount(user.getReviews().size())
                 .roles(roles)
+                .followerCount(followerCount)
+                .followingCount(followingCount)
+                .isFollowing(false)
+                .followsMe(false)
+                .mutualFollow(false)
+                .build();
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public ProfileResponse getUserProfileWithFollowStatus(String username, String currentUsername) {
+        // 같은 사용자인 경우
+        if (username.equals(currentUsername)) {
+            return getUserProfile(username);
+        }
+        
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다: " + username));
+        
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("현재 사용자를 찾을 수 없습니다: " + currentUsername));
+        
+        return buildProfileResponseWithFollowStatus(user, currentUser);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public ProfileResponse getUserProfileByIdWithFollowStatus(Long userId, String currentUsername) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다. ID: " + userId));
+        
+        // 같은 사용자인 경우
+        if (user.getUsername().equals(currentUsername)) {
+            return getUserProfile(user.getUsername());
+        }
+        
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("현재 사용자를 찾을 수 없습니다: " + currentUsername));
+        
+        return buildProfileResponseWithFollowStatus(user, currentUser);
+    }
+    
+    /**
+     * 팔로우 상태를 포함한 프로필 응답 생성
+     */
+    private ProfileResponse buildProfileResponseWithFollowStatus(User user, User currentUser) {
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .collect(Collectors.toList());
+        
+        // 팔로워, 팔로잉 수 조회
+        long followerCount = userFollowRepository.countByFollowingId(user.getId());
+        long followingCount = userFollowRepository.countByFollowerId(user.getId());
+        
+        // 팔로우 상태 조회
+        boolean isFollowing = userFollowRepository
+                .findByFollowerIdAndFollowingId(currentUser.getId(), user.getId())
+                .isPresent();
+        
+        boolean followsMe = userFollowRepository
+                .findByFollowerIdAndFollowingId(user.getId(), currentUser.getId())
+                .isPresent();
+                
+        return ProfileResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .profileImageUrl(user.getProfileImageUrl())
+                .bio(user.getBio())
+                .reviewCount(user.getReviews().size())
+                .roles(roles)
+                .followerCount(followerCount)
+                .followingCount(followingCount)
+                .isFollowing(isFollowing)
+                .followsMe(followsMe)
+                .mutualFollow(isFollowing && followsMe)
                 .build();
     }
 
