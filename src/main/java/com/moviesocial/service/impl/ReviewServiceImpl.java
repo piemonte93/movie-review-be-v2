@@ -48,7 +48,7 @@ public class ReviewServiceImpl implements ReviewService {
         return reviewRepository.findByUserAndContentType(user, "movie", PageRequest.of(page, size))
                 .map(this::convertToReviewResponse);
     }
-
+    
     @Override
     @Transactional(readOnly = true)
     public Page<ReviewResponse> getUserReviews(String username, int page, int size, String contentType) {
