@@ -356,12 +356,13 @@ public class TmdbApiService {
 
             filteredResults = filteredResults.stream()
                     .filter(item -> {
-                        // 영화의 장르 ID 목록이 없으면 필터링하지 않음
                         if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
                             return false;
                         }
-                        // 지정한 장르 중 하나라도 영화에 포함되어 있으면 통과
-                        return item.getGenre_ids().stream().anyMatch(genreList::contains);
+                        // 모든 선택된 장르가 포함되어 있는지 확인 (AND 조건)
+                        return genreList.stream().allMatch(genreId -> 
+                            item.getGenre_ids().contains(genreId)
+                        );
                     })
                     .collect(Collectors.toList());
         }
@@ -407,7 +408,10 @@ public class TmdbApiService {
                                     if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
                                         return false;
                                     }
-                                    return item.getGenre_ids().stream().anyMatch(genreList::contains);
+                                    // 모든 선택된 장르가 포함되어 있는지 확인 (AND 조건)
+                                    return genreList.stream().allMatch(genreId -> 
+                                        item.getGenre_ids().contains(genreId)
+                                    );
                                 })
                                 .collect(Collectors.toList());
                     }
@@ -768,7 +772,10 @@ public class TmdbApiService {
                         if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
                             return false;
                         }
-                        return item.getGenre_ids().stream().anyMatch(genreList::contains);
+                        // 모든 선택된 장르가 포함되어 있는지 확인 (AND 조건)
+                        return genreList.stream().allMatch(genreId -> 
+                            item.getGenre_ids().contains(genreId)
+                        );
                     })
                     .collect(Collectors.toList());
         }
@@ -813,7 +820,10 @@ public class TmdbApiService {
                                     if (item.getGenre_ids() == null || item.getGenre_ids().isEmpty()) {
                                         return false;
                                     }
-                                    return item.getGenre_ids().stream().anyMatch(genreList::contains);
+                                    // 모든 선택된 장르가 포함되어 있는지 확인 (AND 조건)
+                                    return genreList.stream().allMatch(genreId -> 
+                                        item.getGenre_ids().contains(genreId)
+                                    );
                                 })
                                 .collect(Collectors.toList());
                     }
