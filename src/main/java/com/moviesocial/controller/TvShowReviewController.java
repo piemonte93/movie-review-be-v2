@@ -84,13 +84,13 @@ public class TvShowReviewController {
     }
     
     /**
-     * TV 쇼 리뷰를 삭제하는 API
-     * @param userDetails 인증된 사용자 정보
+     * TV 리뷰 삭제 API
+     * @param userDetails 사용자 정보
      * @param reviewId 리뷰 ID
-     * @return 성공 메시지
+     * @return 응답
      */
-    @DeleteMapping("/tvreviews/{reviewId}")
-    @PreAuthorize("hasRole('USER')")
+    @DeleteMapping("/tv-reviews/{reviewId}")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'MODERATOR')")
     public ResponseEntity<Void> deleteTvReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId) {

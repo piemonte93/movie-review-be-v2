@@ -1,5 +1,7 @@
 package com.moviesocial.service.impl;
 
+import com.moviesocial.model.*;
+import com.moviesocial.model.ERole;
 import com.moviesocial.model.Review;
 import com.moviesocial.model.ReviewComment;
 import com.moviesocial.model.User;
@@ -162,7 +164,11 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
+        // 사용자가 자신의 리뷰를 삭제하거나, 관리자 또는 모더레이터인 경우 삭제 가능
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == ERole.ROLE_ADMIN || role.getName() == ERole.ROLE_MODERATOR);
+        
+        if (!review.getUser().getId().equals(user.getId()) && !isAdmin) {
             throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
         }
         
@@ -255,7 +261,11 @@ public class ReviewServiceImpl implements ReviewService {
             throw new RuntimeException("잘못된 리뷰의 댓글입니다.");
         }
 
-        if (!comment.getUser().getId().equals(user.getId())) {
+        // 사용자가 자신의 댓글을 삭제하거나, 관리자 또는 모더레이터인 경우 삭제 가능
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == ERole.ROLE_ADMIN || role.getName() == ERole.ROLE_MODERATOR);
+        
+        if (!comment.getUser().getId().equals(user.getId()) && !isAdmin) {
             throw new RuntimeException("이 댓글을 삭제할 권한이 없습니다.");
         }
         System.out.println("댓글 삭제 권한 확인 완료");
@@ -425,12 +435,17 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        if (!review.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
+        // "tv" 타입인지 확인
+        if (!"tv".equals(review.getContentType())) {
+            throw new RuntimeException("TV 리뷰가 아닙니다.");
         }
         
-        if (!review.getContentType().equals("tv")) {
-            throw new RuntimeException("이 리뷰는 TV 쇼 리뷰가 아닙니다.");
+        // 사용자가 자신의 리뷰를 삭제하거나, 관리자 또는 모더레이터인 경우 삭제 가능
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == ERole.ROLE_ADMIN || role.getName() == ERole.ROLE_MODERATOR);
+        
+        if (!review.getUser().getId().equals(user.getId()) && !isAdmin) {
+            throw new RuntimeException("이 리뷰를 삭제할 권한이 없습니다.");
         }
         
         reviewRepository.delete(review);

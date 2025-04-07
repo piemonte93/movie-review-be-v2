@@ -71,6 +71,29 @@ public class ReportService {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResourceNotFoundException("Report", "id", reportId));
         
+        // 이전 상태가 PROCESSED가 아니고, 새 상태가 PROCESSED인 경우에만 reported_count 증가
+        if (report.getStatus() != ReportStatus.PROCESSED && status == ReportStatus.PROCESSED) {
+            User targetUser = report.getTargetUser();
+            if (targetUser != null) {
+                // 신고 대상 사용자의 reported_count 증가
+                targetUser.incrementReportedCount();
+                
+                // reportedCount가 3의 배수가 되면 자동으로 사용자 상태를 BLOCKED로 변경
+                if (targetUser.getReportedCount() > 0 && targetUser.getReportedCount() % 3 == 0) {
+                    targetUser.setStatus(User.UserStatus.BLOCKED);
+                    targetUser.setBlockReason("신고 횟수가 " + targetUser.getReportedCount() + "회에 도달하여 자동 차단되었습니다.");
+                    targetUser.setBlockDate(java.time.LocalDateTime.now());
+                    
+                    log.info("User automatically blocked due to report count: id={}, username={}, reportedCount={}", 
+                            targetUser.getId(), targetUser.getUsername(), targetUser.getReportedCount());
+                }
+                
+                userRepository.save(targetUser);
+                log.info("Increased reported count for user: id={}, username={}, new count={}", 
+                        targetUser.getId(), targetUser.getUsername(), targetUser.getReportedCount());
+            }
+        }
+        
         report.setStatus(status);
         log.info("Updating report status: id={}, newStatus={}", reportId, status);
         

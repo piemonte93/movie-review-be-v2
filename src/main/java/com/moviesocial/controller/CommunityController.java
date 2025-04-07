@@ -131,7 +131,7 @@ public class CommunityController {
     
     // 게시물 삭제
     @DeleteMapping("/posts/{id}")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('MODERATOR')")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
@@ -280,7 +280,7 @@ public class CommunityController {
     
     // 댓글 삭제
     @DeleteMapping("/comments/{id}")
-    @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('USER') or hasRole('ADMIN') or hasRole('MODERATOR')")
     public ResponseEntity<?> deleteComment(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
