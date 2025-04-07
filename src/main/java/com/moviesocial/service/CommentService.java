@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.hibernate.Hibernate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -150,36 +151,70 @@ public class CommentService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
         
+        // 초기 상태 로깅
+        System.out.println("댓글 좋아요 처리 전 상태 확인");
+        System.out.println("Comment ID: " + comment.getId());
+        System.out.println("댓글 좋아요 처리 전 likes 컬렉션 상태: " + (comment.getLikes() != null ? "not null" : "null"));
+        System.out.println("댓글 좋아요 처리 전 dislikes 컬렉션 상태: " + (comment.getDislikes() != null ? "not null" : "null"));
+        
+        boolean wasLiked = commentLikeRepository.existsByCommentAndUser(comment, user);
+        boolean wasDisliked = commentDislikeRepository.existsByCommentAndUser(comment, user);
+        
+        System.out.println("댓글 좋아요 처리 전 상태 - 좋아요 상태: " + wasLiked + ", 싫어요 상태: " + wasDisliked);
+        
         // 이미 좋아요한 경우 좋아요 취소
-        if (commentLikeRepository.existsByCommentAndUser(comment, user)) {
+        if (wasLiked) {
+            System.out.println("이미 댓글에 좋아요 상태 -> 좋아요 취소");
             commentLikeRepository.deleteByCommentAndUser(comment, user);
         } else {
             // 싫어요가 있으면 제거
-            if (commentDislikeRepository.existsByCommentAndUser(comment, user)) {
+            if (wasDisliked) {
+                System.out.println("댓글에 싫어요 상태에서 좋아요로 변경 -> 싫어요 취소");
                 commentDislikeRepository.deleteByCommentAndUser(comment, user);
             }
             
             // 좋아요 추가
+            System.out.println("댓글에 좋아요 추가");
             CommentLike like = CommentLike.builder()
                     .comment(comment)
                     .user(user)
                     .build();
             
             commentLikeRepository.save(like);
-            
-            // 본인 댓글이 아닌 경우에만 알림 생성
-            if (!comment.getUser().getId().equals(userId)) {
-                notificationService.createNotification(
-                        user,
-                        comment.getUser(),
-                        comment.getPost(),
-                        comment,
-                        Notification.NotificationType.LIKE
-                );
-            }
         }
         
-        return convertToResponse(comment, userId);
+        // 명시적으로 저장하여 변경 사항을 데이터베이스에 반영
+        comment = commentRepository.save(comment);
+        commentRepository.flush();
+        
+        // 영속성 컨텍스트 초기화 후 엔티티 다시 로드
+        comment = commentRepository.findById(commentId).orElseThrow(() -> 
+            new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
+        
+        // 컬렉션 초기화
+        Hibernate.initialize(comment.getLikes());
+        Hibernate.initialize(comment.getDislikes());
+        
+        System.out.println("댓글 좋아요 처리 후 상태 확인");
+        System.out.println("댓글 좋아요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getLikes()));
+        System.out.println("댓글 싫어요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getDislikes()));
+        System.out.println("댓글 좋아요 컬렉션 실제 크기: " + comment.getLikes().size());
+        System.out.println("댓글 싫어요 컬렉션 실제 크기: " + comment.getDislikes().size());
+        System.out.println("댓글의 좋아요 수(getLikeCount): " + comment.getLikeCount());
+        System.out.println("댓글의 싫어요 수(getDislikeCount): " + comment.getDislikeCount());
+        
+        // 현재 좋아요/싫어요 상태 확인
+        boolean isLikedNow = commentLikeRepository.existsByCommentAndUser(comment, user);
+        boolean isDislikedNow = commentDislikeRepository.existsByCommentAndUser(comment, user);
+        System.out.println("댓글 처리 후 상태 - 좋아요: " + isLikedNow + ", 싫어요: " + isDislikedNow);
+        
+        CommentResponse response = convertToResponse(comment, userId);
+        System.out.println("CommentResponse 생성 후 - 좋아요 수: " + response.getLikeCount());
+        System.out.println("CommentResponse 생성 후 - 싫어요 수: " + response.getDislikeCount());
+        System.out.println("CommentResponse 생성 후 - 좋아요 상태: " + response.isLiked());
+        System.out.println("CommentResponse 생성 후 - 싫어요 상태: " + response.isDisliked());
+        
+        return response;
     }
     
     @Transactional
@@ -190,16 +225,30 @@ public class CommentService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
         
+        // 초기 상태 로깅
+        System.out.println("댓글 싫어요 처리 전 상태 확인");
+        System.out.println("Comment ID: " + comment.getId());
+        System.out.println("댓글 싫어요 처리 전 likes 컬렉션 상태: " + (comment.getLikes() != null ? "not null" : "null"));
+        System.out.println("댓글 싫어요 처리 전 dislikes 컬렉션 상태: " + (comment.getDislikes() != null ? "not null" : "null"));
+        
+        boolean wasLiked = commentLikeRepository.existsByCommentAndUser(comment, user);
+        boolean wasDisliked = commentDislikeRepository.existsByCommentAndUser(comment, user);
+        
+        System.out.println("댓글 싫어요 처리 전 상태 - 좋아요 상태: " + wasLiked + ", 싫어요 상태: " + wasDisliked);
+        
         // 이미 싫어요한 경우 싫어요 취소
-        if (commentDislikeRepository.existsByCommentAndUser(comment, user)) {
+        if (wasDisliked) {
+            System.out.println("이미 댓글에 싫어요 상태 -> 싫어요 취소");
             commentDislikeRepository.deleteByCommentAndUser(comment, user);
         } else {
             // 좋아요가 있으면 제거
-            if (commentLikeRepository.existsByCommentAndUser(comment, user)) {
+            if (wasLiked) {
+                System.out.println("댓글에 좋아요 상태에서 싫어요로 변경 -> 좋아요 취소");
                 commentLikeRepository.deleteByCommentAndUser(comment, user);
             }
             
             // 싫어요 추가
+            System.out.println("댓글에 싫어요 추가");
             CommentDislike dislike = CommentDislike.builder()
                     .comment(comment)
                     .user(user)
@@ -208,7 +257,38 @@ public class CommentService {
             commentDislikeRepository.save(dislike);
         }
         
-        return convertToResponse(comment, userId);
+        // 명시적으로 저장하여 변경 사항을 데이터베이스에 반영
+        comment = commentRepository.save(comment);
+        commentRepository.flush();
+        
+        // 영속성 컨텍스트 초기화 후 엔티티 다시 로드
+        comment = commentRepository.findById(commentId).orElseThrow(() -> 
+            new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
+        
+        // 컬렉션 초기화
+        Hibernate.initialize(comment.getLikes());
+        Hibernate.initialize(comment.getDislikes());
+        
+        System.out.println("댓글 싫어요 처리 후 상태 확인");
+        System.out.println("댓글 좋아요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getLikes()));
+        System.out.println("댓글 싫어요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getDislikes()));
+        System.out.println("댓글 좋아요 컬렉션 실제 크기: " + comment.getLikes().size());
+        System.out.println("댓글 싫어요 컬렉션 실제 크기: " + comment.getDislikes().size());
+        System.out.println("댓글의 좋아요 수(getLikeCount): " + comment.getLikeCount());
+        System.out.println("댓글의 싫어요 수(getDislikeCount): " + comment.getDislikeCount());
+        
+        // 현재 좋아요/싫어요 상태 확인
+        boolean isLikedNow = commentLikeRepository.existsByCommentAndUser(comment, user);
+        boolean isDislikedNow = commentDislikeRepository.existsByCommentAndUser(comment, user);
+        System.out.println("댓글 처리 후 상태 - 좋아요: " + isLikedNow + ", 싫어요: " + isDislikedNow);
+        
+        CommentResponse response = convertToResponse(comment, userId);
+        System.out.println("CommentResponse 생성 후 - 좋아요 수: " + response.getLikeCount());
+        System.out.println("CommentResponse 생성 후 - 싫어요 수: " + response.getDislikeCount());
+        System.out.println("CommentResponse 생성 후 - 좋아요 상태: " + response.isLiked());
+        System.out.println("CommentResponse 생성 후 - 싫어요 상태: " + response.isDisliked());
+        
+        return response;
     }
     
     // Entity를 Response DTO로 변환하는 메서드
