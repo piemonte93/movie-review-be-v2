@@ -215,4 +215,20 @@ public interface ReviewService {
      * @return 사용자의 TV 쇼 리뷰 목록
      */
     Page<ReviewResponse> getUserTvReviews(String username, int page, int size);
+    
+    /**
+     * 리뷰에 좋아요를 추가합니다.
+     * @param reviewId 리뷰 ID
+     * @param username 사용자명
+     * @return 업데이트된 리뷰 정보
+     */
+    ReviewResponse likeReview(Long reviewId, String username);
+    
+    /**
+     * 리뷰에 싫어요를 추가합니다.
+     * @param reviewId 리뷰 ID
+     * @param username 사용자명
+     * @return 업데이트된 리뷰 정보
+     */
+    ReviewResponse dislikeReview(Long reviewId, String username);
 } 

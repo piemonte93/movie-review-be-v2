@@ -259,6 +259,34 @@ public class ReviewController {
     }
 
     /**
+     * 리뷰에 좋아요를 누르는 API
+     * @param userDetails 인증된 사용자 정보
+     * @param reviewId 리뷰 ID
+     * @return 좋아요가 반영된 리뷰 정보
+     */
+    @PostMapping("/reviews/{reviewId}/like")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ReviewResponse> likeReview(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long reviewId) {
+        return ResponseEntity.ok(reviewService.likeReview(reviewId, userDetails.getUsername()));
+    }
+
+    /**
+     * 리뷰에 싫어요를 누르는 API
+     * @param userDetails 인증된 사용자 정보
+     * @param reviewId 리뷰 ID
+     * @return 싫어요가 반영된 리뷰 정보
+     */
+    @PostMapping("/reviews/{reviewId}/dislike")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ReviewResponse> dislikeReview(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long reviewId) {
+        return ResponseEntity.ok(reviewService.dislikeReview(reviewId, userDetails.getUsername()));
+    }
+
+    /**
      * 사용자가 특정 영화에 대한 리뷰를 이미 작성했는지 확인하는 API
      * @param movieId 영화 ID
      * @param userDetails 인증된 사용자 정보
