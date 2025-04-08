@@ -4,26 +4,43 @@ import com.moviesocial.model.User;
 import com.moviesocial.payload.response.NotificationResponse;
 import com.moviesocial.service.NotificationService;
 import com.moviesocial.security.services.UserDetailsImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.moviesocial.repository.UserRepository;
+import com.moviesocial.security.jwt.JwtUtils;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/notifications")
 public class NotificationController {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationController.class);
+
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private JwtUtils jwtUtils;
     
     // SSE 연결을 저장하기 위한 Map (사용자 ID -> SSE Emitter)
     private final ConcurrentHashMap<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -151,5 +168,24 @@ public class NotificationController {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 현재 인증된 사용자의 모든 알림 삭제
+     * @param userDetails 인증된 사용자 정보
+     * @return 성공 응답 (No Content)
+     */
+    @DeleteMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteAllNotifications(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String username = userDetails.getUsername();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
+
+        notificationService.deleteAllNotifications(currentUser.getId());
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 } 

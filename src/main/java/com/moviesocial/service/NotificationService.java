@@ -10,17 +10,26 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     @Autowired
     private NotificationRepository notificationRepository;
     
     @Autowired
     private UserRepository userRepository;
+    
+    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
     
     public Page<NotificationResponse> getNotifications(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
@@ -114,6 +123,18 @@ public class NotificationService {
         notification.setRead(false);
 
         notificationRepository.save(notification);
+    }
+    
+    /**
+     * 특정 사용자의 모든 알림을 삭제합니다.
+     * @param userId 알림을 삭제할 사용자의 ID
+     */
+    @Transactional
+    public void deleteAllNotifications(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
+        notificationRepository.deleteByToUser(user);
+        log.info("User {}'s all notifications deleted.", userId);
     }
     
     // Entity를 Response DTO로 변환하는 메서드
