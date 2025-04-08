@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @Data
@@ -19,4 +20,9 @@ public class UserResponse {
     private String status;
     private String blockReason;
     private LocalDateTime blockDate;
+    private int reportedCount;
+
+    public void setReportedCount(int reportedCount) {
+        this.reportedCount = reportedCount;
+    }
 } 
