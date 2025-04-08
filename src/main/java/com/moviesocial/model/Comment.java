@@ -62,8 +62,9 @@ public class Comment {
         try {
             // Hibernate.initialize를 사용하여 명시적으로 컬렉션 초기화
             Hibernate.initialize(likes);
-            System.out.println("댓글 getLikeCount 호출 - 좋아요 컬렉션 크기: " + likes.size());
-            return likes.size();
+            int count = likes.size();
+            System.out.println("댓글 getLikeCount 호출 - likes.size() 호출 결과: " + count);
+            return count;
         } catch (Exception e) {
             System.out.println("댓글 getLikeCount 예외 발생: " + e.getMessage());
             return 0;
@@ -81,8 +82,9 @@ public class Comment {
         try {
             // Hibernate.initialize를 사용하여 명시적으로 컬렉션 초기화
             Hibernate.initialize(dislikes);
-            System.out.println("댓글 getDislikeCount 호출 - 싫어요 컬렉션 크기: " + dislikes.size());
-            return dislikes.size();
+            int count = dislikes.size();
+            System.out.println("댓글 getDislikeCount 호출 - dislikes.size() 호출 결과: " + count);
+            return count;
         } catch (Exception e) {
             System.out.println("댓글 getDislikeCount 예외 발생: " + e.getMessage());
             return 0;

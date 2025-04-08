@@ -203,6 +203,20 @@ public class CommentService {
         System.out.println("댓글의 좋아요 수(getLikeCount): " + comment.getLikeCount());
         System.out.println("댓글의 싫어요 수(getDislikeCount): " + comment.getDislikeCount());
         
+        // 직접 DB에서 좋아요 수 조회 확인
+        long actualLikeCount = commentLikeRepository.countByComment(comment);
+        long actualDislikeCount = commentDislikeRepository.countByComment(comment);
+        System.out.println("댓글의 좋아요 수(DB 직접 조회): " + actualLikeCount);
+        System.out.println("댓글의 싫어요 수(DB 직접 조회): " + actualDislikeCount);
+        
+        // 불일치하는 경우 경고 출력
+        if (comment.getLikeCount() != actualLikeCount) {
+            System.out.println("경고: 좋아요 수 불일치! getLikeCount: " + comment.getLikeCount() + ", DB 직접 조회: " + actualLikeCount);
+        }
+        if (comment.getDislikeCount() != actualDislikeCount) {
+            System.out.println("경고: 싫어요 수 불일치! getDislikeCount: " + comment.getDislikeCount() + ", DB 직접 조회: " + actualDislikeCount);
+        }
+        
         // 현재 좋아요/싫어요 상태 확인
         boolean isLikedNow = commentLikeRepository.existsByCommentAndUser(comment, user);
         boolean isDislikedNow = commentDislikeRepository.existsByCommentAndUser(comment, user);
@@ -226,23 +240,16 @@ public class CommentService {
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
         
         // 초기 상태 로깅
-        System.out.println("댓글 싫어요 처리 전 상태 확인");
-        System.out.println("Comment ID: " + comment.getId());
-        System.out.println("댓글 싫어요 처리 전 likes 컬렉션 상태: " + (comment.getLikes() != null ? "not null" : "null"));
-        System.out.println("댓글 싫어요 처리 전 dislikes 컬렉션 상태: " + (comment.getDislikes() != null ? "not null" : "null"));
-        
-        boolean wasLiked = commentLikeRepository.existsByCommentAndUser(comment, user);
-        boolean wasDisliked = commentDislikeRepository.existsByCommentAndUser(comment, user);
-        
-        System.out.println("댓글 싫어요 처리 전 상태 - 좋아요 상태: " + wasLiked + ", 싫어요 상태: " + wasDisliked);
+        System.out.println("댓글 싫어요 처리 전 likes 컬렉션 크기: " + comment.getLikes().size());
+        System.out.println("댓글 싫어요 처리 전 dislikes 컬렉션 크기: " + comment.getDislikes().size());
         
         // 이미 싫어요한 경우 싫어요 취소
-        if (wasDisliked) {
+        if (commentDislikeRepository.existsByCommentAndUser(comment, user)) {
             System.out.println("이미 댓글에 싫어요 상태 -> 싫어요 취소");
             commentDislikeRepository.deleteByCommentAndUser(comment, user);
         } else {
             // 좋아요가 있으면 제거
-            if (wasLiked) {
+            if (commentLikeRepository.existsByCommentAndUser(comment, user)) {
                 System.out.println("댓글에 좋아요 상태에서 싫어요로 변경 -> 좋아요 취소");
                 commentLikeRepository.deleteByCommentAndUser(comment, user);
             }
@@ -259,9 +266,9 @@ public class CommentService {
         
         // 명시적으로 저장하여 변경 사항을 데이터베이스에 반영
         comment = commentRepository.save(comment);
-        commentRepository.flush();
         
         // 영속성 컨텍스트 초기화 후 엔티티 다시 로드
+        commentRepository.flush();
         comment = commentRepository.findById(commentId).orElseThrow(() -> 
             new RuntimeException("댓글을 찾을 수 없습니다. ID: " + commentId));
         
@@ -269,24 +276,16 @@ public class CommentService {
         Hibernate.initialize(comment.getLikes());
         Hibernate.initialize(comment.getDislikes());
         
-        System.out.println("댓글 싫어요 처리 후 상태 확인");
-        System.out.println("댓글 좋아요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getLikes()));
-        System.out.println("댓글 싫어요 컬렉션 초기화 상태: " + Hibernate.isInitialized(comment.getDislikes()));
-        System.out.println("댓글 좋아요 컬렉션 실제 크기: " + comment.getLikes().size());
-        System.out.println("댓글 싫어요 컬렉션 실제 크기: " + comment.getDislikes().size());
-        System.out.println("댓글의 좋아요 수(getLikeCount): " + comment.getLikeCount());
-        System.out.println("댓글의 싫어요 수(getDislikeCount): " + comment.getDislikeCount());
-        
-        // 현재 좋아요/싫어요 상태 확인
-        boolean isLikedNow = commentLikeRepository.existsByCommentAndUser(comment, user);
-        boolean isDislikedNow = commentDislikeRepository.existsByCommentAndUser(comment, user);
-        System.out.println("댓글 처리 후 상태 - 좋아요: " + isLikedNow + ", 싫어요: " + isDislikedNow);
+        System.out.println("댓글 싫어요 처리 후 likes 컬렉션 실제 크기: " + comment.getLikes().size());
+        System.out.println("댓글 싫어요 처리 후 dislikes 컬렉션 실제 크기: " + comment.getDislikes().size());
+        System.out.println("댓글 싫어요 처리 후 좋아요 수(getLikeCount): " + comment.getLikeCount());
+        System.out.println("댓글 싫어요 처리 후 싫어요 수(getDislikeCount): " + comment.getDislikeCount());
         
         CommentResponse response = convertToResponse(comment, userId);
-        System.out.println("CommentResponse 생성 후 - 좋아요 수: " + response.getLikeCount());
-        System.out.println("CommentResponse 생성 후 - 싫어요 수: " + response.getDislikeCount());
-        System.out.println("CommentResponse 생성 후 - 좋아요 상태: " + response.isLiked());
-        System.out.println("CommentResponse 생성 후 - 싫어요 상태: " + response.isDisliked());
+        System.out.println("CommentResponse의 좋아요 수: " + response.getLikeCount());
+        System.out.println("CommentResponse의 싫어요 수: " + response.getDislikeCount());
+        System.out.println("CommentResponse의 좋아요 상태: " + response.isLiked());
+        System.out.println("CommentResponse의 싫어요 상태: " + response.isDisliked());
         
         return response;
     }
