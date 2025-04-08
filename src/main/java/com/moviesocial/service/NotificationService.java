@@ -11,6 +11,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 public class NotificationService {
 
@@ -80,20 +82,19 @@ public class NotificationService {
     
     // 리뷰 관련 알림 생성
     @Transactional
-    public void createReviewNotification(User fromUser, User toUser, Review review, Comment comment, Notification.NotificationType type) {
+    public void createReviewNotification(User fromUser, User toUser, Review review, ReviewComment reviewComment, Notification.NotificationType type) {
         // 자신에게 보내는 알림은 생성하지 않음
         if (fromUser.getId().equals(toUser.getId())) {
             return;
         }
         
-        Notification notification = Notification.builder()
-                .fromUser(fromUser)
-                .toUser(toUser)
-                .review(review)
-                .comment(comment)
-                .type(type)
-                .read(false)
-                .build();
+        Notification notification = new Notification();
+        notification.setFromUser(fromUser);
+        notification.setToUser(toUser);
+        notification.setReview(review);
+        notification.setReviewComment(reviewComment);
+        notification.setType(type);
+        notification.setRead(false);
         
         notificationRepository.save(notification);
     }
@@ -106,13 +107,12 @@ public class NotificationService {
             return;
         }
         
-        Notification notification = Notification.builder()
-                .fromUser(fromUser)
-                .toUser(toUser)
-                .type(Notification.NotificationType.FOLLOW)
-                .read(false)
-                .build();
-        
+        Notification notification = new Notification();
+        notification.setFromUser(fromUser);
+        notification.setToUser(toUser);
+        notification.setType(Notification.NotificationType.FOLLOW);
+        notification.setRead(false);
+
         notificationRepository.save(notification);
     }
     
@@ -145,10 +145,13 @@ public class NotificationService {
             response.setMovieTitle(notification.getReview().getMovieTitle());
         }
         
-        // 댓글 정보
+        // 댓글 정보 (Post 또는 Review 댓글 중 하나만 존재)
         if (notification.getComment() != null) {
             response.setCommentId(notification.getComment().getId());
             response.setCommentContent(notification.getComment().getContent());
+        } else if (notification.getReviewComment() != null) {
+            response.setCommentId(notification.getReviewComment().getId());
+            response.setCommentContent(notification.getReviewComment().getContent());
         }
         
         return response;

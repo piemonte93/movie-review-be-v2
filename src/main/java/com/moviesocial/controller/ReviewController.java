@@ -3,6 +3,7 @@ package com.moviesocial.controller;
 import com.moviesocial.model.Notification;
 import com.moviesocial.model.Review;
 import com.moviesocial.model.User;
+import com.moviesocial.model.ReviewComment;
 import com.moviesocial.payload.request.CreateReviewRequest;
 import com.moviesocial.payload.request.UpdateReviewRequest;
 import com.moviesocial.payload.request.CreateReviewCommentRequest;
@@ -12,6 +13,7 @@ import com.moviesocial.payload.response.ReviewResponse;
 import com.moviesocial.payload.response.ReviewCommentResponse;
 import com.moviesocial.repository.ReviewRepository;
 import com.moviesocial.repository.UserRepository;
+import com.moviesocial.repository.ReviewCommentRepository;
 import com.moviesocial.security.jwt.JwtUtils;
 import com.moviesocial.service.ReviewService;
 import com.moviesocial.service.NotificationService;
@@ -52,6 +54,9 @@ public class ReviewController {
     
     @Autowired
     private NotificationService notificationService;
+    
+    @Autowired
+    private ReviewCommentRepository reviewCommentRepository;
     
     /**
      * 영화에 대한 리뷰를 작성하는 API
@@ -205,11 +210,15 @@ public class ReviewController {
             
             // 리뷰 작성자와 댓글 작성자가 다른 경우에만 알림 생성
             if (!review.getUser().getId().equals(currentUser.getId())) {
+                // 댓글 정보 가져오기
+                ReviewComment reviewComment = reviewCommentRepository.findById(response.getId())
+                    .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
+                
                 notificationService.createReviewNotification(
                     currentUser,
                     review.getUser(),
                     review,
-                    null,  // 댓글 정보는 아직 저장되지 않았으므로 null로 전달
+                    reviewComment,  // 변수 이름 명확화
                     Notification.NotificationType.COMMENT
                 );
             }
