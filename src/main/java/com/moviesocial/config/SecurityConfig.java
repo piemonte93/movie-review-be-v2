@@ -35,7 +35,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthTokenFilter authenticationJwtTokenFilter() {
-        return new AuthTokenFilter(jwtUtils, userDetailsService);
+        return new AuthTokenFilter();
     }
 
     @Bean
@@ -59,10 +59,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(false);
+        configuration.setExposedHeaders(Arrays.asList("Authorization"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -81,12 +83,16 @@ public class SecurityConfig {
                 .requestMatchers("/api/reviews/**").permitAll()
                 .requestMatchers("/api/tvreviews/**").permitAll()
                 .requestMatchers("/api/contents/**").permitAll()
-                .requestMatchers("/api/community/posts").permitAll() // 게시글 목록 조회 허용
-                .requestMatchers(HttpMethod.GET, "/api/community/posts/**").permitAll() // 게시글 상세 및 댓글 조회 허용
+                .requestMatchers("/api/community/posts").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/community/posts/**").permitAll()
+                // 알림 관련 엔드포인트 설정
+                .requestMatchers("/api/notifications/subscribe").permitAll()
+                .requestMatchers("/api/notifications/unread-count").authenticated()
+                .requestMatchers("/api/notifications").authenticated()
                 // Endpoints requiring authentication
-                .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated() // POST 요청 인증 필요
-                .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated() // PUT 요청 인증 필요
-                .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated() // DELETE 요청 인증 필요
+                .requestMatchers(HttpMethod.POST, "/api/community/**").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/api/community/**").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/api/community/**").authenticated()
                 // Default for all other endpoints
                 .anyRequest().permitAll()
             )

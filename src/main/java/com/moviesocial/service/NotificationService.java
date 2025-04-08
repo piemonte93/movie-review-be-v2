@@ -78,6 +78,44 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
     
+    // 리뷰 관련 알림 생성
+    @Transactional
+    public void createReviewNotification(User fromUser, User toUser, Review review, Comment comment, Notification.NotificationType type) {
+        // 자신에게 보내는 알림은 생성하지 않음
+        if (fromUser.getId().equals(toUser.getId())) {
+            return;
+        }
+        
+        Notification notification = Notification.builder()
+                .fromUser(fromUser)
+                .toUser(toUser)
+                .review(review)
+                .comment(comment)
+                .type(type)
+                .read(false)
+                .build();
+        
+        notificationRepository.save(notification);
+    }
+    
+    // 팔로우 알림 생성
+    @Transactional
+    public void createFollowNotification(User fromUser, User toUser) {
+        // 자신에게 보내는 알림은 생성하지 않음
+        if (fromUser.getId().equals(toUser.getId())) {
+            return;
+        }
+        
+        Notification notification = Notification.builder()
+                .fromUser(fromUser)
+                .toUser(toUser)
+                .type(Notification.NotificationType.FOLLOW)
+                .read(false)
+                .build();
+        
+        notificationRepository.save(notification);
+    }
+    
     // Entity를 Response DTO로 변환하는 메서드
     private NotificationResponse convertToResponse(Notification notification) {
         NotificationResponse response = new NotificationResponse();
@@ -97,6 +135,14 @@ public class NotificationService {
         if (notification.getPost() != null) {
             response.setPostId(notification.getPost().getId());
             response.setPostTitle(notification.getPost().getTitle());
+        }
+        
+        // 리뷰 정보
+        if (notification.getReview() != null) {
+            response.setReviewId(notification.getReview().getId());
+            response.setReviewTitle(notification.getReview().getTitle());
+            response.setMovieId(notification.getReview().getMovieId());
+            response.setMovieTitle(notification.getReview().getMovieTitle());
         }
         
         // 댓글 정보

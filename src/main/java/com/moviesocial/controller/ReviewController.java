@@ -1,5 +1,6 @@
 package com.moviesocial.controller;
 
+import com.moviesocial.model.Notification;
 import com.moviesocial.model.Review;
 import com.moviesocial.model.User;
 import com.moviesocial.payload.request.CreateReviewRequest;
@@ -13,14 +14,17 @@ import com.moviesocial.repository.ReviewRepository;
 import com.moviesocial.repository.UserRepository;
 import com.moviesocial.security.jwt.JwtUtils;
 import com.moviesocial.service.ReviewService;
+import com.moviesocial.service.NotificationService;
 import io.jsonwebtoken.Jwts;
-import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,15 +34,24 @@ import java.util.HashMap;
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api")
-@RequiredArgsConstructor
 public class ReviewController {
 
-    private final ReviewService reviewService;
-    private final UserRepository userRepository;
-    private final ReviewRepository reviewRepository;
+    private static final Logger logger = LoggerFactory.getLogger(ReviewController.class);
+
+    @Autowired
+    private ReviewService reviewService;
+    
+    @Autowired
+    private ReviewRepository reviewRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
     
     @Autowired
     private JwtUtils jwtUtils;
+    
+    @Autowired
+    private NotificationService notificationService;
     
     /**
      * 영화에 대한 리뷰를 작성하는 API
@@ -175,11 +188,37 @@ public class ReviewController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId,
             @RequestBody CreateReviewCommentRequest request) {
-        return ResponseEntity.ok(reviewService.createReviewComment(
+        
+        ReviewCommentResponse response = reviewService.createReviewComment(
                 reviewId,
                 userDetails.getUsername(),
                 request.getContent()
-        ));
+        );
+        
+        try {
+            // 현재 사용자 정보와 리뷰 정보 가져오기
+            User currentUser = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+            
+            Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
+            
+            // 리뷰 작성자와 댓글 작성자가 다른 경우에만 알림 생성
+            if (!review.getUser().getId().equals(currentUser.getId())) {
+                notificationService.createReviewNotification(
+                    currentUser,
+                    review.getUser(),
+                    review,
+                    null,  // 댓글 정보는 아직 저장되지 않았으므로 null로 전달
+                    Notification.NotificationType.COMMENT
+                );
+            }
+        } catch (Exception e) {
+            logger.error("알림 생성 중 오류 발생: {}", e.getMessage());
+            // 알림 생성 실패해도 댓글 기능은 정상 작동하도록 예외 처리
+        }
+        
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -262,14 +301,41 @@ public class ReviewController {
      * 리뷰에 좋아요를 누르는 API
      * @param userDetails 인증된 사용자 정보
      * @param reviewId 리뷰 ID
-     * @return 좋아요가 반영된 리뷰 정보
+     * @return 업데이트된 리뷰 정보
      */
     @PostMapping("/reviews/{reviewId}/like")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ReviewResponse> likeReview(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long reviewId) {
-        return ResponseEntity.ok(reviewService.likeReview(reviewId, userDetails.getUsername()));
+        ReviewResponse response = reviewService.likeReview(reviewId, userDetails.getUsername());
+        
+        try {
+            // 현재 사용자 정보와 리뷰 정보 가져오기
+            User currentUser = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
+            
+            Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
+            
+            // 리뷰 작성자와 좋아요 누른 사용자가 다른 경우에만 알림 생성
+            if (response.getUserId() != null && 
+                !review.getUser().getId().equals(currentUser.getId())) {
+                
+                notificationService.createReviewNotification(
+                    currentUser,
+                    review.getUser(),
+                    review,
+                    null,
+                    Notification.NotificationType.LIKE
+                );
+            }
+        } catch (Exception e) {
+            logger.error("알림 생성 중 오류 발생: {}", e.getMessage());
+            // 알림 생성 실패해도 좋아요 기능은 정상 작동하도록 예외 처리
+        }
+        
+        return ResponseEntity.ok(response);
     }
 
     /**

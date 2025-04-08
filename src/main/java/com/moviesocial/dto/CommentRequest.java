@@ -1,4 +1,4 @@
-package com.moviesocial.payload.request;
+package com.moviesocial.dto;
 
 import lombok.Data;
 
