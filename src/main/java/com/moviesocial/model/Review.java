@@ -111,6 +111,14 @@ public class Review {
         return this.commentCount != null ? this.commentCount : 0;
     }
 
+    public int getLikeCount() {
+        return this.likes != null ? this.likes.size() : 0;
+    }
+
+    public int getDislikeCount() {
+        return this.dislikes != null ? this.dislikes.size() : 0;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

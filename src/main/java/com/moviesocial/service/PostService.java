@@ -292,17 +292,31 @@ public class PostService {
                 post.getUser().getProfileImageUrl()
         ));
         
-        // 좋아요, 싫어요 카운트
-        response.setLikeCount(post.getLikeCount());
-        response.setDislikeCount(post.getDislikeCount());
-        response.setCommentCount(post.getCommentCount());
+        // 좋아요, 싫어요 카운트 - 엔티티의 메서드 대신 직접 데이터베이스에서 조회
+        long likeCount = postLikeRepository.countByPost(post);
+        long dislikeCount = postDislikeRepository.countByPost(post);
+        long commentCount = commentRepository.countByPost(post);
+        
+        System.out.println("직접 DB에서 조회한 좋아요 수: " + likeCount);
+        System.out.println("직접 DB에서 조회한 싫어요 수: " + dislikeCount);
+        System.out.println("직접 DB에서 조회한 댓글 수: " + commentCount);
+        
+        response.setLikeCount((int) likeCount);
+        response.setDislikeCount((int) dislikeCount);
+        response.setCommentCount((int) commentCount);
         
         // 현재 사용자가 좋아요/싫어요 했는지 여부
         if (currentUserId != null) {
             User currentUser = userRepository.findById(currentUserId).orElse(null);
             if (currentUser != null) {
-                response.setLiked(postLikeRepository.existsByPostAndUser(post, currentUser));
-                response.setDisliked(postDislikeRepository.existsByPostAndUser(post, currentUser));
+                boolean isLiked = postLikeRepository.existsByPostAndUser(post, currentUser);
+                boolean isDisliked = postDislikeRepository.existsByPostAndUser(post, currentUser);
+                
+                System.out.println("현재 사용자(" + currentUserId + ")의 좋아요 상태: " + isLiked);
+                System.out.println("현재 사용자(" + currentUserId + ")의 싫어요 상태: " + isDisliked);
+                
+                response.setLiked(isLiked);
+                response.setDisliked(isDisliked);
             }
         }
         
@@ -315,7 +329,7 @@ public class PostService {
                 ))
                 .collect(Collectors.toSet()));
         
-        // 댓글 정보
+        // 댓글 정보 - 각 댓글에 대해서도 좋아요/싫어요 직접 조회
         response.setComments(post.getComments().stream()
                 .map(comment -> {
                     CommentResponse commentResponse = new CommentResponse();
@@ -328,14 +342,28 @@ public class PostService {
                             comment.getUser().getUsername(),
                             comment.getUser().getProfileImageUrl()
                     ));
-                    commentResponse.setLikeCount(comment.getLikeCount());
-                    commentResponse.setDislikeCount(comment.getDislikeCount());
+                    
+                    // 댓글 좋아요/싫어요 수 직접 조회
+                    long commentLikeCount = commentLikeRepository.countByComment(comment);
+                    long commentDislikeCount = commentDislikeRepository.countByComment(comment);
+                    
+                    System.out.println("댓글 ID: " + comment.getId() + " - 직접 DB에서 조회한 좋아요 수: " + commentLikeCount);
+                    System.out.println("댓글 ID: " + comment.getId() + " - 직접 DB에서 조회한 싫어요 수: " + commentDislikeCount);
+                    
+                    commentResponse.setLikeCount((int) commentLikeCount);
+                    commentResponse.setDislikeCount((int) commentDislikeCount);
                     
                     if (currentUserId != null) {
                         User currentUser = userRepository.findById(currentUserId).orElse(null);
                         if (currentUser != null) {
-                            commentResponse.setLiked(commentLikeRepository.existsByCommentAndUser(comment, currentUser));
-                            commentResponse.setDisliked(commentDislikeRepository.existsByCommentAndUser(comment, currentUser));
+                            boolean isCommentLiked = commentLikeRepository.existsByCommentAndUser(comment, currentUser);
+                            boolean isCommentDisliked = commentDislikeRepository.existsByCommentAndUser(comment, currentUser);
+                            
+                            System.out.println("댓글 ID: " + comment.getId() + " - 현재 사용자의 좋아요 상태: " + isCommentLiked);
+                            System.out.println("댓글 ID: " + comment.getId() + " - 현재 사용자의 싫어요 상태: " + isCommentDisliked);
+                            
+                            commentResponse.setLiked(isCommentLiked);
+                            commentResponse.setDisliked(isCommentDisliked);
                         }
                     }
                     
@@ -343,6 +371,7 @@ public class PostService {
                 })
                 .collect(Collectors.toList()));
         
+        System.out.println("PostResponse 변환 완료 - 좋아요: " + response.getLikeCount() + ", 싫어요: " + response.getDislikeCount());
         System.out.println("Successfully converted post to response");
         return response;
     }

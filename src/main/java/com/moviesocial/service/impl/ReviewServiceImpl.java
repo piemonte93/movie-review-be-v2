@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -384,10 +385,6 @@ public class ReviewServiceImpl implements ReviewService {
             throw new RuntimeException("이 리뷰를 수정할 권한이 없습니다.");
         }
         
-        if (!review.getContentType().equals("tv")) {
-            throw new RuntimeException("이 리뷰는 TV 쇼 리뷰가 아닙니다.");
-        }
-        
         if (tvId != null && !tvId.equals(review.getMovieId())) {
             // 리뷰가 속한 TV 쇼가 변경되었는지 확인
             List<Review> existingReviews = reviewRepository.findByUserIdAndMovieIdAndContentType(user.getId(), tvId, "tv");
@@ -475,7 +472,134 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(this::convertToReviewResponse);
     }
 
+    @Override
+    @Transactional
+    public ReviewResponse likeReview(Long reviewId, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
+        
+        // 이미 좋아요를 눌렀는지 확인
+        boolean hasLiked = review.getLikes().stream()
+                .anyMatch(like -> like.getUser().getId().equals(user.getId()));
+        
+        // 이미 싫어요를 눌렀는지 확인
+        boolean hasDisliked = review.getDislikes().stream()
+                .anyMatch(dislike -> dislike.getUser().getId().equals(user.getId()));
+        
+        // 먼저 싫어요가 있으면 제거
+        if (hasDisliked) {
+            review.getDislikes().removeIf(dislike -> dislike.getUser().getId().equals(user.getId()));
+        }
+        
+        // 좋아요 상태 토글
+        if (hasLiked) {
+            // 이미 좋아요를 눌렀다면 좋아요 취소
+            review.getLikes().removeIf(like -> like.getUser().getId().equals(user.getId()));
+        } else {
+            // 좋아요를 누르지 않았다면 좋아요 추가
+            ReviewLike reviewLike = ReviewLike.builder()
+                    .review(review)
+                    .user(user)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            
+            review.getLikes().add(reviewLike);
+        }
+        
+        review = reviewRepository.save(review);
+        return convertToReviewResponse(review);
+    }
+    
+    @Override
+    @Transactional
+    public ReviewResponse dislikeReview(Long reviewId, String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
+        
+        // 이미 싫어요를 눌렀는지 확인
+        boolean hasDisliked = review.getDislikes().stream()
+                .anyMatch(dislike -> dislike.getUser().getId().equals(user.getId()));
+        
+        // 이미 좋아요를 눌렀는지 확인
+        boolean hasLiked = review.getLikes().stream()
+                .anyMatch(like -> like.getUser().getId().equals(user.getId()));
+        
+        // 먼저 좋아요가 있으면 제거
+        if (hasLiked) {
+            review.getLikes().removeIf(like -> like.getUser().getId().equals(user.getId()));
+        }
+        
+        // 싫어요 상태 토글
+        if (hasDisliked) {
+            // 이미 싫어요를 눌렀다면 싫어요 취소
+            review.getDislikes().removeIf(dislike -> dislike.getUser().getId().equals(user.getId()));
+        } else {
+            // 싫어요를 누르지 않았다면 싫어요 추가
+            ReviewDislike reviewDislike = ReviewDislike.builder()
+                    .review(review)
+                    .user(user)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            
+            review.getDislikes().add(reviewDislike);
+        }
+        
+        review = reviewRepository.save(review);
+        return convertToReviewResponse(review);
+    }
+
     private ReviewResponse convertToReviewResponse(Review review) {
+        // 현재 인증된 사용자 정보 가져오기
+        User currentUser = null;
+        try {
+            if (SecurityContextHolder.getContext().getAuthentication() != null &&
+                SecurityContextHolder.getContext().getAuthentication().getPrincipal() != null &&
+                !SecurityContextHolder.getContext().getAuthentication().getPrincipal().equals("anonymousUser")) {
+                
+                Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+                
+                if (principal instanceof User) {
+                    // User 타입으로 직접 변환되는 경우 (테스트 등에서 사용)
+                    currentUser = (User) principal;
+                } else if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
+                    // UserDetails 타입인 경우 (일반적인 경우)
+                    String username = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
+                    currentUser = userRepository.findByUsername(username).orElse(null);
+                }
+            }
+        } catch (Exception e) {
+            // 인증 정보 가져오기 실패 시 로그만 남기고 계속 진행
+            System.out.println("인증 정보 가져오기 실패: " + e.getMessage());
+        }
+
+        // 현재 사용자가 해당 리뷰에 좋아요/싫어요를 눌렀는지 확인
+        boolean isLiked = false;
+        boolean isDisliked = false;
+
+        if (currentUser != null) {
+            Long currentUserId = currentUser.getId();
+            
+            // 디버깅 로그 추가
+            System.out.println("현재 사용자 ID: " + currentUserId);
+            System.out.println("리뷰 ID: " + review.getId());
+            
+            isLiked = review.getLikes().stream()
+                    .anyMatch(like -> like.getUser().getId().equals(currentUserId));
+            
+            isDisliked = review.getDislikes().stream()
+                    .anyMatch(dislike -> dislike.getUser().getId().equals(currentUserId));
+                
+            System.out.println("좋아요 상태: " + isLiked + ", 싫어요 상태: " + isDisliked);
+        } else {
+            System.out.println("현재 사용자 정보를 찾을 수 없습니다.");
+        }
+
         return ReviewResponse.builder()
                 .id(review.getId())
                 .userId(review.getUser().getId())
@@ -494,6 +618,8 @@ public class ReviewServiceImpl implements ReviewService {
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .contentType(review.getContentType())
+                .isLiked(isLiked)
+                .isDisliked(isDisliked)
                 .build();
     }
 
