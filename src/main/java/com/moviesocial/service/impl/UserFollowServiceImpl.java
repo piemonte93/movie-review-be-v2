@@ -1,5 +1,6 @@
 package com.moviesocial.service.impl;
 
+import com.moviesocial.model.Notification;
 import com.moviesocial.model.User;
 import com.moviesocial.model.UserFollow;
 import com.moviesocial.model.UserFollowId;
@@ -7,9 +8,11 @@ import com.moviesocial.payload.response.FollowUserResponse;
 import com.moviesocial.payload.response.UserFollowResponse;
 import com.moviesocial.repository.UserFollowRepository;
 import com.moviesocial.repository.UserRepository;
+import com.moviesocial.service.NotificationService;
 import com.moviesocial.service.UserFollowService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,9 @@ public class UserFollowServiceImpl implements UserFollowService {
 
     private final UserRepository userRepository;
     private final UserFollowRepository userFollowRepository;
+    
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * 팔로우/언팔로우 토글
@@ -71,6 +77,16 @@ public class UserFollowServiceImpl implements UserFollowService {
                 log.info("새 팔로우 관계 생성");
                 userFollowRepository.save(newFollow);
                 isNowFollowing = true;
+
+                // --- Create Notification --- 
+                try {
+                    notificationService.createFollowNotification(currentUser, targetUser);
+                    log.info("팔로우 알림 생성됨: {} -> {}", currentUser.getUsername(), targetUser.getUsername());
+                } catch (Exception e) {
+                    // Log error but don't break the follow action
+                    log.error("팔로우 알림 생성 실패: {}", e.getMessage());
+                }
+                // --- Notification End --- 
             } catch (DataIntegrityViolationException e) {
                 // 이미 팔로우 중인 경우 (동시성 문제로 인한 중복 요청)
                 log.info("이미 팔로우 중인 관계입니다. 기존 팔로우 관계 유지");
