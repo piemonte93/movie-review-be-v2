@@ -10,15 +10,29 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
+import java.io.IOException;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     @Autowired
     private NotificationRepository notificationRepository;
     
     @Autowired
     private UserRepository userRepository;
+    
+    private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
     
     public Page<NotificationResponse> getNotifications(Long userId, Pageable pageable) {
         User user = userRepository.findById(userId)
@@ -61,10 +75,7 @@ public class NotificationService {
     
     @Transactional
     public void createNotification(User fromUser, User toUser, Post post, Comment comment, Notification.NotificationType type) {
-        // 자신에게 보내는 알림은 생성하지 않음
-        if (fromUser.getId().equals(toUser.getId())) {
-            return;
-        }
+        if (fromUser.getId().equals(toUser.getId())) return;
         
         Notification notification = Notification.builder()
                 .fromUser(fromUser)
@@ -75,7 +86,100 @@ public class NotificationService {
                 .read(false)
                 .build();
         
-        notificationRepository.save(notification);
+        Notification savedNotification = notificationRepository.save(notification);
+        notifyUser(toUser.getId(), savedNotification); // Send SSE notification
+    }
+    
+    @Transactional
+    public void createReviewNotification(User fromUser, User toUser, Review review, ReviewComment reviewComment, Notification.NotificationType type) {
+        if (fromUser.getId().equals(toUser.getId())) return;
+        
+        Notification notification = new Notification();
+        notification.setFromUser(fromUser);
+        notification.setToUser(toUser);
+        notification.setReview(review);
+        notification.setReviewComment(reviewComment);
+        notification.setType(type);
+        notification.setRead(false);
+        
+        Notification savedNotification = notificationRepository.save(notification);
+        notifyUser(toUser.getId(), savedNotification); // Send SSE notification
+    }
+    
+    @Transactional
+    public void createFollowNotification(User fromUser, User toUser) {
+        if (fromUser.getId().equals(toUser.getId())) return;
+        
+        Notification notification = new Notification();
+        notification.setFromUser(fromUser);
+        notification.setToUser(toUser);
+        notification.setType(Notification.NotificationType.FOLLOW);
+        notification.setRead(false);
+
+        Notification savedNotification = notificationRepository.save(notification);
+        notifyUser(toUser.getId(), savedNotification); // Send SSE notification
+    }
+    
+    @Transactional
+    public void deleteAllNotifications(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + userId));
+        notificationRepository.deleteByToUser(user);
+        log.info("User {}'s all notifications deleted.", userId);
+    }
+
+    /**
+     * Registers an SseEmitter for a given user.
+     * @param userId The ID of the user.
+     * @param emitter The SseEmitter instance.
+     */
+    public void registerEmitter(Long userId, SseEmitter emitter) {
+        emitters.put(userId, emitter);
+        log.info("Emitter registered for user: {}", userId);
+
+        // Remove emitter on completion, timeout, or error
+        emitter.onCompletion(() -> {
+            log.info("Emitter completed for user: {}", userId);
+            emitters.remove(userId);
+        });
+        emitter.onTimeout(() -> {
+            log.info("Emitter timed out for user: {}", userId);
+            emitters.remove(userId);
+        });
+        emitter.onError((e) -> {
+            log.error("Emitter error for user: {}: {}", userId, e.getMessage());
+            emitters.remove(userId);
+        });
+    }
+
+    /**
+     * Sends a notification event to a specific user via SSE.
+     * This method should be called after a notification is saved.
+     * Uses @Async to avoid blocking the main thread.
+     * @param userId The ID of the user to notify.
+     * @param notification The Notification entity that was saved.
+     */
+    @Async
+    public void notifyUser(Long userId, Notification notification) {
+        SseEmitter emitter = emitters.get(userId);
+        if (emitter != null) {
+            try {
+                NotificationResponse response = convertToResponse(notification); // Convert to DTO
+                emitter.send(SseEmitter.event()
+                        .name("notification") // Event name expected by frontend
+                        .data(response, MediaType.APPLICATION_JSON));
+                log.info("Sent notification to user {}: Type={}, ID={}", 
+                         userId, notification.getType(), notification.getId());
+            } catch (IOException e) {
+                log.error("Failed to send SSE notification to user {}: {}", userId, e.getMessage());
+                emitters.remove(userId); // Remove emitter on failure
+            } catch (Exception e) {
+                log.error("Unexpected error sending SSE notification to user {}: {}", userId, e.getMessage(), e);
+                emitters.remove(userId); // Remove emitter on failure
+            }
+        } else {
+            log.warn("No active SSE emitter found for user {}", userId);
+        }
     }
     
     // Entity를 Response DTO로 변환하는 메서드
@@ -99,10 +203,21 @@ public class NotificationService {
             response.setPostTitle(notification.getPost().getTitle());
         }
         
-        // 댓글 정보
+        // 리뷰 정보
+        if (notification.getReview() != null) {
+            response.setReviewId(notification.getReview().getId());
+            response.setReviewTitle(notification.getReview().getTitle());
+            response.setMovieId(notification.getReview().getMovieId());
+            response.setMovieTitle(notification.getReview().getMovieTitle());
+        }
+        
+        // 댓글 정보 (Post 또는 Review 댓글 중 하나만 존재)
         if (notification.getComment() != null) {
             response.setCommentId(notification.getComment().getId());
             response.setCommentContent(notification.getComment().getContent());
+        } else if (notification.getReviewComment() != null) {
+            response.setCommentId(notification.getReviewComment().getId());
+            response.setCommentContent(notification.getReviewComment().getContent());
         }
         
         return response;

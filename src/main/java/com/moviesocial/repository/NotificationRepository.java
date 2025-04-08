@@ -29,4 +29,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     
     // 특정 댓글에 관련된 알림 목록 찾기
     List<Notification> findByCommentId(Long commentId);
+
+    @Modifying
+    @Query("UPDATE Notification n SET n.read = true WHERE n.toUser = :user AND n.read = false")
+    void markAllAsReadByUser(@Param("user") User user);
+
+    // Method to delete all notifications for a specific user
+    void deleteByToUser(User toUser);
 } 

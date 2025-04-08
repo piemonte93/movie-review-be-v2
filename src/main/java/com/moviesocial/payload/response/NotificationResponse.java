@@ -16,6 +16,10 @@ public class NotificationResponse {
     private UserSummary fromUser;
     private Long postId;
     private String postTitle;
+    private Long reviewId;
+    private String reviewTitle;
+    private Long movieId;
+    private String movieTitle;
     private Long commentId;
     private String commentContent;
     
