@@ -18,18 +18,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.moviesocial.repository.UserRepository;
 import com.moviesocial.repository.UserFollowRepository;
 import com.moviesocial.security.services.UserDetailsImpl;
+import com.moviesocial.security.services.UserDetailsServiceImpl;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import com.moviesocial.exception.FileStorageException;
+import com.moviesocial.exception.ResourceNotFoundException;
 import jakarta.validation.Valid;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -56,6 +60,9 @@ public class ProfileController {
 
     @Autowired
     private UserFollowRepository userFollowRepository;
+
+    @Autowired
+    private UserDetailsServiceImpl userDetailsService;
 
     @GetMapping("/{username}")
     public ResponseEntity<ProfileResponse> getUserProfile(
@@ -249,24 +256,112 @@ public class ProfileController {
             // Call the service to update the profile (returns updated User entity)
             User updatedUserEntity = profileService.updateUserProfile(currentUser, profileData, imageFile);
 
-            // After successful update, fetch the updated profile information using the service
-            // This ensures consistency and includes follow status if applicable
-            // Pass the original userDetails for context
-            ProfileResponse updatedProfileResponse = profileService.getUserProfile(updatedUserEntity.getId(), userDetails);
+            // --- 추가: SecurityContext 업데이트 ---
+            // 업데이트된 사용자 정보로 UserDetails 다시 로드
+            UserDetails updatedUserDetails = userDetailsService.loadUserByUsername(updatedUserEntity.getUsername());
+            // 새로운 Authentication 객체 생성
+            UsernamePasswordAuthenticationToken newAuthentication = new UsernamePasswordAuthenticationToken(
+                    updatedUserDetails, null, updatedUserDetails.getAuthorities());
+            // 현재 Security Context에 새로운 Authentication 설정
+            SecurityContextHolder.getContext().setAuthentication(newAuthentication);
+            log.info("SecurityContext updated for user: {}", updatedUserEntity.getUsername());
+            // --- 추가 끝 ---
 
-            log.info("Profile updated successfully for user ID: {}", updatedUserEntity.getId());
-            // Return the ProfileResponse DTO
-            return ResponseEntity.ok(updatedProfileResponse);
+            // --- 추가: 사용자 이름 변경 시 새 JWT 토큰 생성 ---
+            String newToken = null;
+            boolean usernameChanged = !currentUser.getUsername().equals(updatedUserEntity.getUsername());
+            
+            if (usernameChanged) {
+                // 새 JWT 토큰 생성
+                newToken = jwtUtils.generateJwtToken(newAuthentication);
+                log.info("Username changed from '{}' to '{}'. New JWT token generated.", 
+                        currentUser.getUsername(), updatedUserEntity.getUsername());
+                        
+                // 토큰 내용 디버깅
+                try {
+                    String username = jwtUtils.getUserNameFromJwtToken(newToken);
+                    log.info("새 토큰의 사용자명 확인: {}", username);
+                    log.info("새 토큰의 길이: {}", newToken.length());
+                    log.info("새 토큰 샘플: {}...", newToken.substring(0, 20));
+                } catch (Exception e) {
+                    log.error("토큰 파싱 중 오류: {}", e.getMessage());
+                }
+            }
+            // --- 추가 끝 ---
 
-        } catch (IllegalArgumentException | FileStorageException e) {
-            log.warn("Profile update failed for user ID {}: {}", userDetails.getId(), e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            // updatedUserEntity를 기반으로 ProfileResponse 생성
+            // (buildProfileResponse 또는 buildProfileResponseWithFollowStatus 유사 로직 필요)
+            List<String> roles = updatedUserEntity.getRoles().stream()
+                    .map(role -> role.getName().name())
+                    .collect(Collectors.toList());
+            long followerCount = userFollowRepository.countByFollowingId(updatedUserEntity.getId());
+            long followingCount = userFollowRepository.countByFollowerId(updatedUserEntity.getId());
+
+            ProfileResponse response = ProfileResponse.builder()
+                 .id(updatedUserEntity.getId())
+                 .username(updatedUserEntity.getUsername())
+                 .email(updatedUserEntity.getEmail())
+                 .profileImageUrl(updatedUserEntity.getProfileImageUrl())
+                 .bio(updatedUserEntity.getBio())
+                 .reviewCount(updatedUserEntity.getReviews() != null ? updatedUserEntity.getReviews().size() : 0) // Null check 추가
+                 .postCount(0) // TODO: 실제 포스트 수 조회 로직 추가 필요
+                 .roles(roles)
+                 .followerCount(followerCount)
+                 .followingCount(followingCount)
+                 // 내 프로필 업데이트 후 응답이므로 팔로우 관련은 false
+                 .isFollowing(false)
+                 .followsMe(false)
+                 .mutualFollow(false)
+                 .build();
+
+            // 로그 추가: 업데이트된 정보 확인
+            log.info("Successfully updated profile for user ID: {}. Responding with: {}", updatedUserEntity.getId(), response);
+
+            // --- 추가: 사용자 이름 변경 시 새 토큰 포함한 응답 반환 ---
+            if (usernameChanged && newToken != null) {
+                // 토큰과 프로필 정보를 모두 포함하는 응답 객체 생성
+                Map<String, Object> responseWithToken = new HashMap<>();
+                responseWithToken.put("profile", response);
+                responseWithToken.put("accessToken", newToken);
+                responseWithToken.put("tokenType", "Bearer");
+                
+                log.info("Returning response with new JWT token for username change");
+                
+                // 응답 구조 디버깅
+                try {
+                    log.info("응답 객체 구조: {}", responseWithToken.keySet());
+                    log.info("응답 accessToken 존재 여부: {}", responseWithToken.containsKey("accessToken"));
+                    log.info("응답 profile 존재 여부: {}", responseWithToken.containsKey("profile"));
+                } catch (Exception e) {
+                    log.error("응답 객체 디버깅 중 오류: {}", e.getMessage());
+                }
+                
+                return ResponseEntity.ok(responseWithToken);
+            } else {
+                // 일반적인 경우 프로필 정보만 반환
+                return ResponseEntity.ok(response);
+            }
+            // --- 추가 끝 ---
+
+        } catch (FileStorageException e) {
+            log.error("File storage error during profile update for user ID: {}. Error: {}", userDetails.getId(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File storage error: " + e.getMessage());
+        } catch (ResourceNotFoundException e) {
+            log.error("Resource not found during profile update for user ID: {}. Error: {}", userDetails.getId(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
         } catch (RuntimeException e) {
-            log.error("Error updating profile for user ID: {}", userDetails.getId(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while updating the profile.");
+            // username 중복 또는 다른 Runtime 예외 처리
+            log.error("Error updating profile for user ID: {}. Error: {}", userDetails.getId(), e.getMessage(), e);
+            // 클라이언트에게 더 친화적인 메시지 제공 고려
+            String errorMessage = "An error occurred while updating the profile.";
+            if (e.getMessage() != null && e.getMessage().contains("이미 사용 중인 사용자명입니다")) {
+                 errorMessage = e.getMessage(); // 중복 메시지 그대로 전달
+                 return ResponseEntity.status(HttpStatus.CONFLICT).body(errorMessage);
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorMessage);
         } catch (Exception e) {
-            log.error("Unexpected error updating profile for user ID: {}", userDetails.getId(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected server error occurred.");
+            log.error("Unexpected error updating profile for user ID: {}. Error: {}", userDetails.getId(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred.");
         }
     }
 } 

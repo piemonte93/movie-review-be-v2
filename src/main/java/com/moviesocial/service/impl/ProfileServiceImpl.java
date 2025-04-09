@@ -239,11 +239,19 @@ public class ProfileServiceImpl implements ProfileService {
              logger.info("No changes detected in profile data for user ID: {}", user.getId());
         }
 
-        if (newImageUrl != null && !newImageUrl.equals(oldImageUrl) && oldImageUrl != null && !oldImageUrl.trim().isEmpty() && !isDefaultImage(oldImageUrl)) {
-             logger.info("Attempting to delete old profile image: {}", oldImageUrl);
-             fileStorageService.deleteFile(oldImageUrl);
+        // User 업데이트 후 기존 이미지 삭제 시도 (try-catch 추가 및 조건 수정)
+        if (profileUpdated && newImageUrl != null && !newImageUrl.equals(oldImageUrl) && oldImageUrl != null && !oldImageUrl.trim().isEmpty() && !isDefaultImage(oldImageUrl)) {
+             try {
+                 logger.info("Attempting to delete old profile image: {}", oldImageUrl);
+                 fileStorageService.deleteFile(oldImageUrl);
+                 logger.info("Successfully deleted old profile image: {}", oldImageUrl);
+             } catch (Exception e) {
+                 // 파일 삭제 실패 시 오류 로그만 남기고 계속 진행 (프로필 업데이트는 성공 처리)
+                 logger.error("Failed to delete old profile image: {}. Error: {}", oldImageUrl, e.getMessage());
+                 // 여기서 예외를 다시 던지지 않음
+             }
         } else if (newImageUrl != null && !newImageUrl.equals(oldImageUrl)) {
-             logger.debug("Skipping deletion of old image. Old URL: '{}', New URL: '{}'", oldImageUrl, newImageUrl);
+             logger.debug("Skipping deletion of old image (condition not met). Old URL: '{}', New URL: '{}'", oldImageUrl, newImageUrl);
         }
 
         return savedUser;
