@@ -577,6 +577,34 @@ public class ReviewServiceImpl implements ReviewService {
         });
     }
 
+    @Override
+    public Page<ReviewResponse> searchReviews(String query, String contentType, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Review> reviews;
+
+        if (contentType != null && !contentType.isEmpty()) {
+            reviews = reviewRepository.searchByTitleOrContentAndContentType(query, contentType, pageable);
+        } else {
+            reviews = reviewRepository.searchByTitleOrContent(query, pageable);
+        }
+        
+        return reviews.map(this::convertToReviewResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getHotReviews(int limit) {
+        LocalDateTime oneMonthAgo = LocalDateTime.now().minusMonths(1);
+        // Pageable 객체를 사용하여 가져올 리뷰 수를 제한
+        Pageable pageable = PageRequest.of(0, limit); // 페이지 0, 사이즈 limit
+        
+        List<Review> hotReviews = reviewRepository.findHotReviews(oneMonthAgo, pageable);
+        
+        return hotReviews.stream()
+                .map(this::convertToReviewResponse)
+                .collect(Collectors.toList());
+    }
+
     private ReviewResponse convertToReviewResponse(Review review) {
         // 현재 인증된 사용자 정보 가져오기
         User currentUser = null;
@@ -623,11 +651,29 @@ public class ReviewServiceImpl implements ReviewService {
             System.out.println("현재 사용자 정보를 찾을 수 없습니다.");
         }
 
+        // 사용자 정보 가져오기 (null 체크 추가)
+        User reviewUser = review.getUser();
+        Long userId = null;
+        String username = "Unknown User"; // 기본값 설정
+        String profileImageUrl = null;
+
+        if (reviewUser != null) {
+            userId = reviewUser.getId();
+            // username이 null 이거나 비어있지 않은 경우에만 실제 username 사용
+            if (reviewUser.getUsername() != null && !reviewUser.getUsername().trim().isEmpty()) {
+                username = reviewUser.getUsername();
+            }
+            profileImageUrl = reviewUser.getProfileImageUrl();
+        } else {
+            // review.getUser() 자체가 null인 경우 로그 추가 (문제 진단용)
+            System.err.println("Warning: Review ID " + review.getId() + " has a null user associated.");
+        }
+
         return ReviewResponse.builder()
                 .id(review.getId())
-                .userId(review.getUser().getId())
-                .username(review.getUser().getUsername())
-                .userProfileImageUrl(review.getUser().getProfileImageUrl())
+                .userId(userId) // null 가능
+                .username(username) // 기본값 또는 실제 사용자 이름
+                .userProfileImageUrl(profileImageUrl) // null 가능
                 .movieId(review.getMovieId())
                 .title(review.getTitle())
                 .movieTitle(review.getMovieTitle())

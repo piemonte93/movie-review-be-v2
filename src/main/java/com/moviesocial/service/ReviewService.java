@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ReviewService {
     /**
@@ -240,4 +241,13 @@ public interface ReviewService {
      * @return 좋아요 누른 리뷰 목록
      */
     Page<ReviewResponse> getMyLikedReviews(String username, int page, int size);
+
+    Page<ReviewResponse> searchReviews(String query, String contentType, int page, int size);
+
+    /**
+     * 댓글 수가 많은 인기 리뷰 목록을 조회합니다. (최근 한 달)
+     * @param limit 조회할 리뷰 개수
+     * @return 인기 리뷰 목록
+     */
+    List<ReviewResponse> getHotReviews(int limit);
 } 
