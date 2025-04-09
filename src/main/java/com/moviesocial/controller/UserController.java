@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,24 +28,40 @@ public class UserController {
     private final UserService userService;
 
     /**
-     * 현재 로그인한 사용자의 상태를 조회합니다.
-     * ACTIVE, BLOCKED, DELETED 상태를 반환합니다.
+     * 현재 로그인한 사용자의 상태 및 기본 정보를 조회합니다.
+     * ID, Username, Email, Roles, ProfileImageUrl, Status 등을 포함한 UserResponse DTO를 반환합니다.
      */
     @GetMapping("/status")
     public ResponseEntity<?> getUserStatus() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
-            return ResponseEntity.status(401).body("인증되지 않은 사용자입니다.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증되지 않은 사용자입니다."); // Use HttpStatus enum
         }
 
         String username = auth.getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        Map<String, String> response = new HashMap<>();
-        response.put("status", user.getStatus().name());
-        
-        return ResponseEntity.ok(response);
+        // Map User entity to UserResponse DTO
+        UserResponse responseDto = new UserResponse();
+        responseDto.setId(user.getId());
+        responseDto.setUsername(user.getUsername());
+        responseDto.setEmail(user.getEmail()); // Include email
+        responseDto.setProfileImageUrl(user.getProfileImageUrl()); // <<<--- Include profile image URL
+        responseDto.setBio(user.getBio()); // Include bio
+        responseDto.setSocialLogin(user.isSocialLogin()); // Include social login status
+        responseDto.setStatus(user.getStatus() != null ? user.getStatus().name() : null); // Include status
+        // Include roles
+        List<String> roles = user.getRoles().stream()
+                                  .map(role -> role.getName().name())
+                                  .collect(Collectors.toList());
+        responseDto.setRoles(roles);
+        // Optionally include other fields like reportedCount if needed by the frontend context
+        // responseDto.setReportedCount(user.getReportedCount());
+        // responseDto.setBlockReason(user.getBlockReason());
+        // responseDto.setBlockDate(user.getBlockDate());
+
+        return ResponseEntity.ok(responseDto);
     }
 
     @GetMapping("/search")

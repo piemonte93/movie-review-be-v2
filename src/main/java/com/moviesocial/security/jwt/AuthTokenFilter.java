@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -51,18 +52,38 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 logger.info("JWT 토큰 파싱 성공");
                 if (jwtUtils.validateJwtToken(jwt)) {
                     logger.info("JWT 토큰 검증 성공");
+                    
+                    // 우선 사용자 이름으로 시도
                     String username = jwtUtils.getUserNameFromJwtToken(jwt);
                     logger.info("JWT 토큰에서 사용자명 추출: {}", username);
-
-                    UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserByUsername(username);
-                    User user = userDetails.getUser();
+                    
+                    // 이메일도 추출 (사용자명으로 찾지 못할 경우 사용)
+                    String email = jwtUtils.getEmailFromJwtToken(jwt);
+                    logger.info("JWT 토큰에서 이메일 추출: {}", email);
+                    
+                    UserDetails userDetails = null;
+                    try {
+                        // 먼저 사용자명으로 찾기 시도
+                        userDetails = userDetailsService.loadUserByUsername(username);
+                        logger.info("사용자명으로 사용자 찾기 성공: {}", username);
+                    } catch (UsernameNotFoundException ex) {
+                        // 사용자명으로 찾기 실패시 이메일로 시도
+                        logger.info("사용자명으로 사용자 찾기 실패, 이메일로 시도: {}", email);
+                        if (email != null && !email.equals(username)) {
+                            userDetails = userDetailsService.loadUserByUsername(email);
+                            logger.info("이메일로 사용자 찾기 성공: {}", email);
+                        } else {
+                            // 재시도하지 않고 예외 다시 던지기
+                            throw ex;
+                        }
+                    }
                     
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                     SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.info("인증 정보 설정 완료: {}", username);
+                    logger.info("인증 정보 설정 완료: {}", userDetails.getUsername());
                 } else {
                     logger.error("JWT 토큰 검증 실패");
                 }

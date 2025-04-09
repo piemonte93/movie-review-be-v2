@@ -1,7 +1,10 @@
 package com.moviesocial.service;
 
+import com.moviesocial.model.User;
+import com.moviesocial.model.dto.UpdateProfileRequestDto;
 import com.moviesocial.payload.request.ProfileUpdateRequest;
 import com.moviesocial.payload.response.ProfileResponse;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface ProfileService {
@@ -33,7 +36,7 @@ public interface ProfileService {
      * @param username 사용자명
      * @param request 업데이트할 프로필 정보
      */
-    void updateProfile(String username, ProfileUpdateRequest request);
+    // void updateProfile(String username, ProfileUpdateRequest request);
     
     /**
      * 프로필 이미지를 업로드합니다.
@@ -41,5 +44,11 @@ public interface ProfileService {
      * @param file 업로드할 이미지 파일
      * @return 업로드된 이미지의 URL
      */
-    String uploadProfileImage(String username, MultipartFile file);
+    // String uploadProfileImage(String username, MultipartFile file);
+
+    // Updated method signature for getting profile, returning ProfileResponse
+    ProfileResponse getUserProfile(Long userId, UserDetails currentUserDetails);
+
+    // updateUserProfile still returns User entity, which controller will map
+    User updateUserProfile(User user, UpdateProfileRequestDto profileData, MultipartFile imageFile);
 } 
