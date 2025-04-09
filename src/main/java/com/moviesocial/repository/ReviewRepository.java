@@ -99,4 +99,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      */
     @Query("SELECT r FROM Review r WHERE r.createdAt >= :startDate ORDER BY r.commentCount DESC, r.createdAt DESC")
     List<Review> findHotReviews(@Param("startDate") LocalDateTime startDate, Pageable pageable);
+    
+    /**
+     * movieId와 contentType으로 리뷰 목록을 조회합니다. (페이징 없음)
+     * @param movieId 콘텐츠 ID
+     * @param contentType 콘텐츠 타입
+     * @return 리뷰 목록
+     */
+    List<Review> findByMovieIdAndContentType(Long movieId, String contentType);
 } 

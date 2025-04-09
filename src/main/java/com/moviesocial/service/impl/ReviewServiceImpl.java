@@ -198,8 +198,7 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new RuntimeException("리뷰를 찾을 수 없습니다."));
         
-        return reviewCommentRepository.findByReview(review, PageRequest.of(page, size))
-                .map(this::convertToCommentResponse);
+        return reviewCommentRepository.findReviewCommentsByReview(review, PageRequest.of(page, size));
     }
 
     @Override
@@ -215,13 +214,11 @@ public class ReviewServiceImpl implements ReviewService {
                 .review(review)
                 .user(user)
                 .content(content)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
 
         review.setCommentCount(review.getCommentCount() + 1);
         reviewRepository.save(review);
-
+        
         return convertToCommentResponse(reviewCommentRepository.save(comment));
     }
 
@@ -605,6 +602,36 @@ public class ReviewServiceImpl implements ReviewService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public Double getMovieAverageRating(Long movieId) {
+        List<Review> reviews = reviewRepository.findByMovieIdAndContentType(movieId, "movie");
+        if (reviews.isEmpty()) {
+            return null;
+        }
+        
+        double sum = 0;
+        for (Review review : reviews) {
+            sum += review.getRating();
+        }
+        
+        return sum / reviews.size();
+    }
+    
+    @Override
+    public Double getTvShowAverageRating(Long tvId) {
+        List<Review> reviews = reviewRepository.findByMovieIdAndContentType(tvId, "tv");
+        if (reviews.isEmpty()) {
+            return null;
+        }
+        
+        double sum = 0;
+        for (Review review : reviews) {
+            sum += review.getRating();
+        }
+        
+        return sum / reviews.size();
+    }
+    
     private ReviewResponse convertToReviewResponse(Review review) {
         // 현재 인증된 사용자 정보 가져오기
         User currentUser = null;
@@ -693,27 +720,38 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private ReviewCommentResponse convertToCommentResponse(ReviewComment comment) {
-        // UserResponse 생성
-        UserResponse userResponse = new UserResponse();
-        userResponse.setId(comment.getUser().getId());
-        userResponse.setUsername(comment.getUser().getUsername());
-        userResponse.setProfileImageUrl(comment.getUser().getProfileImageUrl());
+        User user = comment.getUser();
+        String profileImageUrl = user.getProfileImageUrl();
+        String finalProfileImageUrl = (profileImageUrl != null && !profileImageUrl.isEmpty()) 
+                                       ? profileImageUrl 
+                                       : "/images/default-profile.png";
+
+        UserResponse userResponse = UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .profileImageUrl(finalProfileImageUrl)
+                .bio(user.getBio())
+                .build();
+                
+        boolean isLiked = false;
+        boolean isDisliked = false;
+        int likeCount = 0;
+        int dislikeCount = 0;
         
-        // 댓글 응답 설정
-        ReviewCommentResponse response = ReviewCommentResponse.builder()
+        return ReviewCommentResponse.builder()
                 .id(comment.getId())
-                .userId(comment.getUser().getId())
-                .username(comment.getUser().getUsername())
+                .userId(user.getId())
+                .username(user.getUsername())
+                .profileImageUrl(finalProfileImageUrl)
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .user(userResponse)
-                .likeCount(0)  // 현재는 좋아요/싫어요 기능이 구현되지 않아 0으로 설정
-                .dislikeCount(0)
-                .isLiked(false)
-                .isDisliked(false)
+                .likeCount(likeCount)
+                .dislikeCount(dislikeCount)
+                .isLiked(isLiked)
+                .isDisliked(isDisliked)
                 .build();
-                
-        return response;
     }
 } 

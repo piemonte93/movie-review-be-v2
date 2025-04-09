@@ -2,13 +2,17 @@ package com.moviesocial.payload.response;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class UserResponse {
     private Long id;
     private String username;

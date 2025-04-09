@@ -170,4 +170,18 @@ public class TvShowReviewController {
         
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * TV 쇼의 평균 평점을 가져오는 API
+     * @param tvId TV 쇼 ID
+     * @return 평균 평점
+     */
+    @GetMapping("/tvshows/{tvId}/average-rating")
+    public ResponseEntity<Map<String, Double>> getTvShowAverageRating(
+            @PathVariable Long tvId) {
+        Double averageRating = reviewService.getTvShowAverageRating(tvId);
+        Map<String, Double> response = new HashMap<>();
+        response.put("averageRating", averageRating);
+        return ResponseEntity.ok(response);
+    }
 } 

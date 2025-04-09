@@ -250,4 +250,18 @@ public interface ReviewService {
      * @return 인기 리뷰 목록
      */
     List<ReviewResponse> getHotReviews(int limit);
+
+    /**
+     * 영화의 평균 평점을 계산합니다.
+     * @param movieId 영화 ID
+     * @return 평균 평점 (리뷰가 없는 경우 null)
+     */
+    Double getMovieAverageRating(Long movieId);
+    
+    /**
+     * TV 쇼의 평균 평점을 계산합니다.
+     * @param tvId TV 쇼 ID
+     * @return 평균 평점 (리뷰가 없는 경우 null)
+     */
+    Double getTvShowAverageRating(Long tvId);
 } 

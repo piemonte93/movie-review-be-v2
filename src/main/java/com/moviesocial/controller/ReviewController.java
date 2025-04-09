@@ -394,4 +394,18 @@ public class ReviewController {
         List<ReviewResponse> hotReviews = reviewService.getHotReviews(limit);
         return ResponseEntity.ok(hotReviews);
     }
+
+    /**
+     * 영화의 평균 평점을 가져오는 API
+     * @param movieId 영화 ID
+     * @return 평균 평점
+     */
+    @GetMapping("/movies/{movieId}/average-rating")
+    public ResponseEntity<Map<String, Double>> getMovieAverageRating(
+            @PathVariable Long movieId) {
+        Double averageRating = reviewService.getMovieAverageRating(movieId);
+        Map<String, Double> response = new HashMap<>();
+        response.put("averageRating", averageRating);
+        return ResponseEntity.ok(response);
+    }
 } 

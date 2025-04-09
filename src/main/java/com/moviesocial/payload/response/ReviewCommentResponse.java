@@ -14,6 +14,7 @@ public class ReviewCommentResponse {
     private Long id;
     private Long userId;
     private String username;
+    private String profileImageUrl;
     private String content;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
