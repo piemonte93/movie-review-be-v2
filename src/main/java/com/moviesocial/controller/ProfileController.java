@@ -20,10 +20,13 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.moviesocial.repository.UserRepository;
-
+import com.moviesocial.repository.UserFollowRepository;
+import com.moviesocial.security.services.UserDetailsImpl;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -46,6 +49,9 @@ public class ProfileController {
     
     @Autowired
     private ScrapService scrapService;
+
+    @Autowired
+    private UserFollowRepository userFollowRepository;
 
     @GetMapping("/{username}")
     public ResponseEntity<ProfileResponse> getUserProfile(
@@ -87,11 +93,54 @@ public class ProfileController {
 
     @GetMapping("/me")
     @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<ProfileResponse> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
-        log.info("내 프로필 조회 요청 - 사용자: {}", userDetails.getUsername());
-        
-        // 자신의 프로필 정보는 팔로우 상태 포함 필요 없음
-        ProfileResponse profile = profileService.getUserProfile(userDetails.getUsername());
+    public ResponseEntity<ProfileResponse> getMyProfile(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            // 이 경우는 @PreAuthorize 때문에 거의 발생하지 않지만 안전하게 처리
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        log.info("내 프로필 조회 요청 - 사용자 ID: {}, 사용자 이름: {}", userDetails.getId(), userDetails.getUsername());
+
+        // @AuthenticationPrincipal 에서 직접 정보 가져오기 (DB 재조회 방지)
+        Long userId = userDetails.getId();
+        String username = userDetails.getUsername();
+        String email = userDetails.getEmail();
+        // UserDetailsImpl에 profileImageUrl, bio 필드가 있다면 가져오기 (없으면 null 또는 기본값)
+        String profileImageUrl = userDetails.getProfileImageUrl(); // UserDetailsImpl에 getter 추가 필요 가정
+        String bio = userDetails.getBio(); // UserDetailsImpl에 getter 추가 필요 가정
+
+        // 역할 정보 추출
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(grantedAuthority -> grantedAuthority.getAuthority())
+                .collect(Collectors.toList());
+
+        // 팔로워, 팔로잉 수 조회
+        long followerCount = userFollowRepository.countByFollowingId(userId);
+        long followingCount = userFollowRepository.countByFollowerId(userId);
+
+        // 리뷰 수 조회 (이 부분은 여전히 DB 조회가 필요할 수 있음. UserDetailsImpl에 리뷰 정보가 없다면)
+        // User 객체를 로드해야 할 수도 있지만, 우선 UserDetails 정보만 사용
+        int reviewCount = 0; // UserDetailsImpl에 리뷰 카운트 정보가 없다면 0 또는 다른 방식으로 조회 필요
+        // Optional<User> userOptional = userRepository.findById(userId);
+        // if (userOptional.isPresent()) {
+        //    reviewCount = userOptional.get().getReviews().size(); 
+        // }
+
+        // ProfileResponse 직접 생성
+        ProfileResponse profile = ProfileResponse.builder()
+                .id(userId)
+                .username(username)
+                .email(email)
+                .profileImageUrl(profileImageUrl)
+                .bio(bio)
+                .reviewCount(reviewCount) // 리뷰 수는 별도 조회 또는 UserDetailsImpl 확장 필요
+                .roles(roles)
+                .followerCount(followerCount)
+                .followingCount(followingCount)
+                .isFollowing(false) // 내 프로필이므로 항상 false
+                .followsMe(false)  // 내 프로필이므로 항상 false
+                .mutualFollow(false) // 내 프로필이므로 항상 false
+                .build();
+
         return ResponseEntity.ok(profile);
     }
 

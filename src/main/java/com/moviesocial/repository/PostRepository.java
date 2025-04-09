@@ -15,7 +15,7 @@ import java.util.List;
 public interface PostRepository extends JpaRepository<Post, Long> {
     Page<Post> findAllByOrderByCreatedAtDesc(Pageable pageable);
     
-    Page<Post> findByUser(User user, Pageable pageable);
+    Page<Post> findByUserId(Long userId, Pageable pageable);
     
     @Query("SELECT p FROM Post p WHERE p.title LIKE %:query% ORDER BY p.createdAt DESC")
     Page<Post> searchByTitle(@Param("query") String query, Pageable pageable);
@@ -34,4 +34,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     
     @Query("SELECT COUNT(pd) FROM PostDislike pd WHERE pd.post.id = :postId")
     long countDislikesByPostId(@Param("postId") Long postId);
+
+    long countByUserId(Long userId);
 } 

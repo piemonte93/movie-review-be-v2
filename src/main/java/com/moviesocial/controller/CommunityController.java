@@ -8,6 +8,7 @@ import com.moviesocial.payload.response.PostResponse;
 import com.moviesocial.security.services.UserDetailsImpl;
 import com.moviesocial.service.CommentService;
 import com.moviesocial.service.PostService;
+import com.moviesocial.repository.PostRepository;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,9 @@ public class CommunityController {
     
     @Autowired
     private CommentService commentService;
+    
+    @Autowired
+    private PostRepository postRepository;
     
     // 게시물 목록 조회
     @GetMapping("/posts")
@@ -343,6 +347,22 @@ public class CommunityController {
         
         CommentResponse comment = commentService.dislikeComment(id, user.getId());
         return ResponseEntity.ok(comment);
+    }
+
+    /**
+     * 특정 사용자가 작성한 게시글 수를 반환합니다.
+     * @param userId 사용자 ID
+     * @return 게시글 수
+     */
+    @GetMapping("/posts/count/{userId}")
+    public ResponseEntity<Long> countUserPosts(@PathVariable Long userId) {
+        try {
+            long postCount = postRepository.countByUserId(userId);
+            return ResponseEntity.ok(postCount);
+        } catch (Exception e) {
+            logger.error("사용자 ID {}의 게시글 수 조회 중 오류 발생", userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 사용자의 게시물 목록 조회

@@ -264,10 +264,12 @@ public class PostService {
     }
     
     public Page<PostResponse> getUserPosts(Long userId, Pageable pageable, Long currentUserId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
+        // User 객체를 로드할 필요 없이 userId를 직접 사용
+        // User user = userRepository.findById(userId)
+        //         .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
         
-        Page<Post> posts = postRepository.findByUser(user, pageable);
+        // findByUser 대신 findByUserId 사용 및 userId 전달
+        Page<Post> posts = postRepository.findByUserId(userId, pageable);
         return posts.map(post -> convertToResponse(post, currentUserId));
     }
     

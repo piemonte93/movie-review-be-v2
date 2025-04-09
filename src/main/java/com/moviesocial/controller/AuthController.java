@@ -451,41 +451,57 @@ public class AuthController {
     @PostMapping("/update-username")
     public ResponseEntity<?> updateUsername(@RequestBody Map<String, String> request, @RequestHeader("Authorization") String authHeader) {
         try {
-            // 토큰에서 사용자 정보 추출
-            String token = authHeader.substring(7);
-            
-            if (!jwtUtils.validateJwtToken(token)) {
+            // 이전 토큰 검증 및 사용자 정보 로드 (기존 로직 유지)
+            String oldToken = authHeader.substring(7);
+            if (!jwtUtils.validateJwtToken(oldToken)) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("유효하지 않은 토큰입니다."));
             }
-            
-            String email = jwtUtils.getEmailFromJwtToken(token);
+            String email = jwtUtils.getEmailFromJwtToken(oldToken);
             User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-            
-            // 닉네임 중복 확인
+
+            // 닉네임 중복 확인 (기존 로직 유지)
             String newUsername = request.get("username");
             if (userRepository.existsByUsername(newUsername) && !user.getUsername().equals(newUsername)) {
                 return ResponseEntity.badRequest().body(new MessageResponse("이미 사용 중인 닉네임입니다."));
             }
-            
-            // 닉네임 업데이트
+
+            // 닉네임 업데이트 및 DB 저장 (기존 로직 유지)
             user.setUsername(newUsername);
-            userRepository.save(user);
+            User updatedUser = userRepository.save(user); // 저장 후 반환된 객체 사용
+
+            // --- 새로운 JWT 토큰 생성 로직 시작 ---
+            // 1. 업데이트된 사용자 정보로 UserDetailsImpl 생성
+            UserDetailsImpl newUserDetails = UserDetailsImpl.build(updatedUser);
+
+            // 2. 새로운 Authentication 객체 생성 (비밀번호는 null 또는 빈 문자열)
+            //    UsernamePasswordAuthenticationToken을 사용하거나, 다른 적절한 Authentication 구현체 사용 가능
+            //    여기서는 토큰 발급 목적이므로 principal과 authorities만 중요함
+            Authentication newAuthentication = new UsernamePasswordAuthenticationToken(
+                newUserDetails, 
+                null, // 비밀번호는 필요 없음
+                newUserDetails.getAuthorities()
+            );
             
-            // 사용자 권한 목록
-            List<String> roles = user.getRoles().stream()
-                .map(role -> role.getName().name())
+            // 3. 새로운 JWT 토큰 생성
+            String newJwt = jwtUtils.generateJwtToken(newAuthentication);
+            // --- 새로운 JWT 토큰 생성 로직 끝 ---
+
+            // 사용자 권한 목록 (이미 newUserDetails에 포함되어 있지만, 응답 형식을 위해 재생성)
+            List<String> roles = newUserDetails.getAuthorities().stream()
+                .map(item -> item.getAuthority())
                 .collect(Collectors.toList());
-            
-            // 응답 생성
+
+            // 응답 생성: 새로운 토큰과 업데이트된 사용자 정보 포함
             return ResponseEntity.ok(new JwtResponse(
-                token,
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
+                newJwt, // <-- 새로 생성된 토큰 사용
+                updatedUser.getId(),
+                updatedUser.getUsername(),
+                updatedUser.getEmail(),
                 roles
             ));
         } catch (Exception e) {
+            log.error("닉네임 업데이트 중 오류 발생", e); // 로깅 추가
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new MessageResponse("닉네임 업데이트 중 오류 발생: " + e.getMessage()));
         }
