@@ -231,4 +231,13 @@ public interface ReviewService {
      * @return 업데이트된 리뷰 정보
      */
     ReviewResponse dislikeReview(Long reviewId, String username);
+    
+    /**
+     * 현재 로그인한 사용자가 좋아요 누른 리뷰 목록을 가져옵니다.
+     * @param username 사용자명
+     * @param page 페이지 번호
+     * @param size 페이지 크기
+     * @return 좋아요 누른 리뷰 목록
+     */
+    Page<ReviewResponse> getMyLikedReviews(String username, int page, int size);
 } 

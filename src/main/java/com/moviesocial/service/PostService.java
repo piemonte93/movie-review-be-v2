@@ -227,6 +227,21 @@ public class PostService {
         return convertToResponse(post, userId);
     }
     
+    /**
+     * 사용자가 좋아요 누른 게시글 목록을 가져옵니다.
+     * @param userId 사용자 ID
+     * @param pageable 페이지 정보
+     * @return 좋아요 누른 게시글 목록
+     */
+    public Page<PostResponse> getMyLikedPosts(Long userId, Pageable pageable) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다. ID: " + userId));
+        
+        // 좋아요 누른 게시글 조회
+        Page<Post> likedPosts = postLikeRepository.findPostsByUser(user, pageable);
+        return likedPosts.map(post -> convertToResponse(post, userId));
+    }
+    
     public Page<PostResponse> searchPosts(String query, String category, Pageable pageable, Long currentUserId) {
         Page<Post> results;
         

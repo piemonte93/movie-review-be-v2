@@ -12,8 +12,10 @@ import com.moviesocial.payload.response.UserResponse;
 import com.moviesocial.repository.ReviewRepository;
 import com.moviesocial.repository.ReviewCommentRepository;
 import com.moviesocial.repository.UserRepository;
+import com.moviesocial.repository.ReviewLikeRepository;
 import com.moviesocial.service.ReviewService;
 import com.moviesocial.service.TmdbApiService;
+import com.moviesocial.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -38,6 +40,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final UserRepository userRepository;
     private final ReviewCommentRepository reviewCommentRepository;
     private final TmdbApiService tmdbApiService;
+    private final ReviewLikeRepository reviewLikeRepository;
     
     @PersistenceContext
     private EntityManager entityManager;
@@ -553,6 +556,26 @@ public class ReviewServiceImpl implements ReviewService {
         review = reviewRepository.save(review);
         return convertToReviewResponse(review);
     }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ReviewResponse> getMyLikedReviews(String username, int page, int size) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+        
+        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        Page<Review> likedReviews = reviewLikeRepository.findReviewsByUser(user, pageRequest);
+        
+        return likedReviews.map(review -> {
+            ReviewResponse response = convertToReviewResponse(review);
+            
+            // 현재 사용자는 이미 이 리뷰에 좋아요를 누른 상태
+            response.setLiked(true);
+            response.setDisliked(false);
+            
+            return response;
+        });
+    }
 
     private ReviewResponse convertToReviewResponse(Review review) {
         // 현재 인증된 사용자 정보 가져오기
@@ -618,8 +641,8 @@ public class ReviewServiceImpl implements ReviewService {
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
                 .contentType(review.getContentType())
-                .isLiked(isLiked)
-                .isDisliked(isDisliked)
+                .liked(isLiked)
+                .disliked(isDisliked)
                 .build();
     }
 

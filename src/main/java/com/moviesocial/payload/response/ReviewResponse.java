@@ -31,6 +31,14 @@ public class ReviewResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String contentType;
-    private Boolean isLiked;
-    private Boolean isDisliked;
+    private Boolean liked;
+    private Boolean disliked;
+
+    public Boolean isLiked() {
+        return liked;
+    }
+
+    public Boolean isDisliked() {
+        return disliked;
+    }
 } 
