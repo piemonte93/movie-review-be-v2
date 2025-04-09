@@ -3,6 +3,8 @@ package com.moviesocial.repository;
 import com.moviesocial.model.ContentScrap;
 import com.moviesocial.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,14 @@ public interface ContentScrapRepository extends JpaRepository<ContentScrap, Long
      * @return 스크랩 목록
      */
     List<ContentScrap> findByUserOrderByCreatedAtDesc(User user);
+    
+    /**
+     * 사용자 ID 목록에 해당하는 사용자들이 스크랩한 콘텐츠를 생성일 기준 내림차순으로 가져옴
+     * @param userIds 사용자 ID 목록
+     * @return 스크랩 목록
+     */
+    @Query("SELECT s FROM ContentScrap s WHERE s.user.id IN :userIds ORDER BY s.createdAt DESC")
+    List<ContentScrap> findByUserIdInOrderByCreatedAtDesc(@Param("userIds") List<Long> userIds);
     
     /**
      * 특정 사용자가 특정 콘텐츠를 스크랩했는지 확인

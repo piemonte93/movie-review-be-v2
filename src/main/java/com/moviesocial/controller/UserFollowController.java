@@ -4,6 +4,7 @@ import com.moviesocial.model.User;
 import com.moviesocial.payload.response.FollowUserResponse;
 import com.moviesocial.payload.response.UserFollowResponse;
 import com.moviesocial.repository.UserRepository;
+import com.moviesocial.service.ScrapService;
 import com.moviesocial.service.UserFollowService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 사용자 팔로우 기능 컨트롤러
@@ -26,6 +29,7 @@ public class UserFollowController {
 
     private final UserFollowService userFollowService;
     private final UserRepository userRepository;
+    private final ScrapService scrapService;
 
     /**
      * 팔로우/언팔로우 토글
@@ -116,5 +120,31 @@ public class UserFollowController {
         List<FollowUserResponse> following = userFollowService.getFollowing(userId, currentUser.getId());
         
         return ResponseEntity.ok(following);
+    }
+
+    /**
+     * 팔로잉 중인 사용자들의 스크랩 목록 조회
+     */
+    @GetMapping("/following/scraps")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Map<String, Object>>> getFollowingScraps(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        log.info("팔로잉 중인 사용자들의 스크랩 목록 조회 요청 - 요청자: {}", userDetails.getUsername());
+        
+        User currentUser = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("인증된 사용자를 찾을 수 없습니다."));
+        
+        // 1. 팔로잉 사용자 ID 목록 가져오기
+        List<Long> followingUserIds = userFollowService.getMyFollowing(currentUser.getId()).stream()
+                .map(FollowUserResponse::getId)
+                .collect(Collectors.toList());
+        
+        // 2. 팔로잉 사용자들의 스크랩 가져오기
+        List<Map<String, Object>> scraps = scrapService.getFollowingScraps(followingUserIds);
+        
+        log.info("팔로잉 사용자들의 스크랩 {} 건 반환", scraps.size());
+        
+        return ResponseEntity.ok(scraps);
     }
 } 
