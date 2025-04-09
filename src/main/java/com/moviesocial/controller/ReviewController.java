@@ -381,4 +381,17 @@ public class ReviewController {
         
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * 최근 한 달간 댓글이 많은 인기 리뷰 목록 조회 API
+     * @param limit 조회할 개수 (기본값 5)
+     * @return 인기 리뷰 목록
+     */
+    @GetMapping("/reviews/hot")
+    public ResponseEntity<List<ReviewResponse>> getHotReviews(
+            @RequestParam(defaultValue = "5") int limit) {
+        logger.info("인기 리뷰 목록 조회 요청 - limit: {}", limit);
+        List<ReviewResponse> hotReviews = reviewService.getHotReviews(limit);
+        return ResponseEntity.ok(hotReviews);
+    }
 } 

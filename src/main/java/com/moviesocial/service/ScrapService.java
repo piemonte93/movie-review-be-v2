@@ -204,4 +204,28 @@ public class ScrapService {
             return defaultValue;
         }
     }
+    
+    /**
+     * 팔로잉하는 사용자들의 스크랩 목록 조회
+     * @param followingUserIds 팔로잉하는 사용자 ID 목록
+     * @return 스크랩 목록
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getFollowingScraps(List<Long> followingUserIds) {
+        if (followingUserIds == null || followingUserIds.isEmpty()) {
+            log.debug("팔로잉하는 사용자가 없습니다.");
+            return List.of();
+        }
+        
+        log.debug("팔로잉 사용자 스크랩 조회: userIds={}", followingUserIds);
+        
+        // 1. 팔로잉하는 사용자들의 스크랩 조회
+        List<ContentScrap> scraps = scrapRepository.findByUserIdInOrderByCreatedAtDesc(followingUserIds);
+        log.debug("조회된 스크랩 수: {}", scraps.size());
+        
+        // 2. DTO로 변환하여 반환
+        return scraps.stream()
+            .map(this::convertToDto)
+            .collect(Collectors.toList());
+    }
 } 
