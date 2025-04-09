@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
@@ -11,6 +12,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Setter
 public class ProfileResponse {
     private Long id;
     private String username;
@@ -18,6 +20,7 @@ public class ProfileResponse {
     private String profileImageUrl;
     private String bio;
     private int reviewCount;
+    private int postCount;
     private List<String> roles;
     
     // 팔로워, 팔로잉 수 추가

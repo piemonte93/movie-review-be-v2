@@ -85,6 +85,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/contents/**").permitAll()
                 .requestMatchers("/api/community/posts").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/community/posts/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/images/**").permitAll()
                 // 알림 관련 엔드포인트 설정
                 .requestMatchers("/api/notifications/subscribe").permitAll()
                 .requestMatchers("/api/notifications/unread-count").authenticated()

@@ -411,18 +411,16 @@ public class AuthController {
                 System.out.println("user-info API - isNewUser: " + isNewUser);
                 
                 // 응답 생성
-                JwtResponse response = new JwtResponse(
-                    token,
+                return ResponseEntity.ok(new JwtResponse(
+                    null, // Token is not needed here
                     user.getId(),
                     user.getUsername(),
                     user.getEmail(),
-                    roles
-                );
-                
-                // 새 사용자 여부 추가
-                response.setIsNewUser(isNewUser);
-                
-                return ResponseEntity.ok(response);
+                    roles,
+                    user.getProfileImageUrl(), // Pass profileImageUrl
+                    user.getStatus(), // Pass status
+                    user.getBio() // Pass bio
+                ));
             } else {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new MessageResponse("유효하지 않은 토큰입니다."));
             }

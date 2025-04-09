@@ -1,6 +1,7 @@
 package com.moviesocial.controller;
 
 import com.moviesocial.model.User;
+import com.moviesocial.model.dto.UpdateProfileRequestDto;
 import com.moviesocial.payload.response.ProfileResponse;
 import com.moviesocial.payload.response.ReviewResponse;
 import com.moviesocial.service.ProfileService;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.moviesocial.exception.FileStorageException;
+import jakarta.validation.Valid;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -208,6 +212,61 @@ public class ProfileController {
             log.error("활동 정보 조회 실패 - 대상: {}, 오류: {}", username, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("활동 정보를 가져오는 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Updates the authenticated user's profile information, including optional profile image.
+     * Expects multipart/form-data with 'profileData' (JSON) and optionally 'imageFile'.
+     *
+     * @param userDetails Authenticated user details.
+     * @param profileData DTO containing username and bio (validated).
+     * @param imageFile Optional new profile image.
+     * @return ResponseEntity containing the updated user profile information.
+     */
+    @PutMapping(value = "/me", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<?> updateMyProfile(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestPart("profileData") @Valid UpdateProfileRequestDto profileData,
+            @RequestPart(value = "imageFile", required = false) MultipartFile imageFile) {
+
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authentication required.");
+        }
+
+        try {
+            log.info("Received profile update request for user ID: {}", userDetails.getId());
+            if (imageFile != null && !imageFile.isEmpty()) {
+                log.info("Image file received: {}, size: {} bytes, type: {}",
+                        imageFile.getOriginalFilename(), imageFile.getSize(), imageFile.getContentType());
+            }
+
+            // Fetch the current user entity before passing to service
+            User currentUser = userRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new RuntimeException("Authenticated user not found in database"));
+
+            // Call the service to update the profile (returns updated User entity)
+            User updatedUserEntity = profileService.updateUserProfile(currentUser, profileData, imageFile);
+
+            // After successful update, fetch the updated profile information using the service
+            // This ensures consistency and includes follow status if applicable
+            // Pass the original userDetails for context
+            ProfileResponse updatedProfileResponse = profileService.getUserProfile(updatedUserEntity.getId(), userDetails);
+
+            log.info("Profile updated successfully for user ID: {}", updatedUserEntity.getId());
+            // Return the ProfileResponse DTO
+            return ResponseEntity.ok(updatedProfileResponse);
+
+        } catch (IllegalArgumentException | FileStorageException e) {
+            log.warn("Profile update failed for user ID {}: {}", userDetails.getId(), e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("Error updating profile for user ID: {}", userDetails.getId(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while updating the profile.");
+        } catch (Exception e) {
+            log.error("Unexpected error updating profile for user ID: {}", userDetails.getId(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected server error occurred.");
         }
     }
 } 

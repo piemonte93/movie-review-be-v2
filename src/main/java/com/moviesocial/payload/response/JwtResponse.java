@@ -3,6 +3,7 @@ package com.moviesocial.payload.response;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.moviesocial.model.User.UserStatus;
 
 import java.util.List;
 
@@ -17,6 +18,9 @@ public class JwtResponse {
     private String email;
     private List<String> roles;
     private boolean isNewUser;
+    private String profileImageUrl;
+    private UserStatus status;
+    private String bio;
 
     public JwtResponse(String token, Long id, String username, String email, List<String> roles) {
         this.token = token;
@@ -24,6 +28,19 @@ public class JwtResponse {
         this.username = username;
         this.email = email;
         this.roles = roles;
+        this.isNewUser = false;
+    }
+
+    public JwtResponse(String token, Long id, String username, String email, List<String> roles,
+                       String profileImageUrl, UserStatus status, String bio) {
+        this.token = token;
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.roles = roles;
+        this.profileImageUrl = profileImageUrl;
+        this.status = status;
+        this.bio = bio;
         this.isNewUser = false;
     }
 
@@ -81,5 +98,29 @@ public class JwtResponse {
     
     public void setIsNewUser(boolean isNewUser) {
         this.isNewUser = isNewUser;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
+    public UserStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(UserStatus status) {
+        this.status = status;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 }
